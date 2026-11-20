@@ -4,14 +4,15 @@
 #  - build/dist/Triviae.zip         : version légère, « Triviae.bat » télécharge Node au premier lancement (~10 Mo)
 set -euo pipefail
 cd "$(dirname "$0")/.."
+mkdir -p build/cache
 NODE_EXE=build/cache/pkg/package/bin/node.exe
 [ -f "$NODE_EXE" ] || { (cd build/cache && npm pack node-win-x64@22.23.4 >/dev/null && rm -rf pkg && mkdir pkg && tar -xzf node-win-x64-22.23.4.tgz -C pkg); }
 rm -rf build/dist; mkdir -p build/dist
 
 # --- version complète ---
 FULL=build/dist/complet/Triviae
-scripts/assemble.sh "$FULL" win "$NODE_EXE"
-scripts/make-exe.sh "$NODE_EXE" "$FULL/Triviae.exe"
+bash scripts/assemble.sh "$FULL" win "$NODE_EXE"
+bash scripts/make-exe.sh "$NODE_EXE" "$FULL/Triviae.exe"
 mkdir -p "$FULL/outils"
 cp tools/commun/preparer-application.mjs "$FULL/outils/"
 sed 's/$/\r/' tools/windows/LISEZMOI-exe.txt > "$FULL/LISEZMOI.txt"

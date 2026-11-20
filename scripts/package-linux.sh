@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 OUT=build/dist/ubuntu/Triviae
 rm -rf build/dist/ubuntu; mkdir -p build/dist
-scripts/assemble.sh "$OUT" linux none
+bash scripts/assemble.sh "$OUT" linux none
 mkdir -p "$OUT/outils"
 cp tools/commun/preparer-application.mjs "$OUT/outils/"
 cp tools/linux/triviae.sh "$OUT/"
