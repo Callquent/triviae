@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Ajouter une application à Triviae</title>
+<style>
+@page{size:A4;margin:18mm 17mm 20mm}
+*{box-sizing:border-box}
+body{font:10.5pt/1.5 "Inter","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;color:#17212f;margin:0}
+.cover{background:#1f5fa8;color:#fff;border-radius:14px;padding:26px 28px;margin-bottom:18px}
+.cover h1{margin:0 0 6px;font-size:23pt;letter-spacing:-.01em}
+.cover p{margin:0;opacity:.9;font-size:11pt}
+h2{font-size:14pt;color:#1f5fa8;margin:22px 0 6px;padding-bottom:4px;border-bottom:2px solid #dbe6f3;break-after:avoid}
+h3{font-size:11pt;margin:14px 0 4px;break-after:avoid}
+p{margin:6px 0}
+ul,ol{margin:6px 0;padding-left:22px}li{margin:3px 0}
+code{font:9.3pt "JetBrains Mono","DejaVu Sans Mono",Consolas,monospace;background:#eef3f9;border-radius:4px;padding:1px 5px}
+pre{font:8.8pt/1.45 "JetBrains Mono","DejaVu Sans Mono",Consolas,monospace;background:#0f1b2d;color:#e6edf7;border-radius:8px;padding:11px 13px;margin:8px 0;white-space:pre-wrap;break-inside:avoid}
+.steps{counter-reset:s;list-style:none;padding:0}
+.steps>li{counter-increment:s;position:relative;padding:8px 10px 8px 44px;margin:6px 0;background:#f4f8fc;border-radius:10px;break-inside:avoid}
+.steps>li::before{content:counter(s);position:absolute;left:10px;top:8px;width:24px;height:24px;border-radius:50%;background:#1f5fa8;color:#fff;font-weight:700;display:grid;place-items:center;font-size:10pt;text-align:center;line-height:24px}
+.note,.warn{border-left:4px solid #1f5fa8;background:#eef5fd;padding:8px 12px;border-radius:0 8px 8px 0;margin:10px 0;break-inside:avoid}
+.warn{border-color:#c47a00;background:#fff6e6}
+table{border-collapse:collapse;width:100%;margin:8px 0;break-inside:avoid;font-size:10pt}
+th,td{border:1px solid #d7e1ee;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#eaf1f9}
+.toc{background:#f7f9fc;border:1px solid #dbe6f3;border-radius:10px;padding:10px 16px;margin:0 0 6px}
+.toc ol{margin:4px 0;columns:2}
+.muted{color:#5a6b80}
+.tag{display:inline-block;font-size:8.5pt;font-weight:700;background:#dbe6f3;color:#1f5fa8;border-radius:999px;padding:1px 8px;margin-left:6px;vertical-align:2px}
+</style></head><body>
+
+<div class="cover"><h1>Ajouter une application</h1><p>Guide pour installer vos applications Next.js dans « Triviae » : importer un .zip, régler l'application, comprendre ce qui est automatique.</p></div>
+
+<div class="toc"><strong>Sommaire</strong><ol>
+<li>Le principe</li><li>Importer un .zip (méthode simple)</li><li>Les trois sortes de .zip</li><li>Le fichier app.json</li><li>Ce que fait la plateforme pour vous</li><li>Préparer le projet à la main (avancé)</li><li>Utiliser sans le PC (téléphone)</li><li>Synchronisation entre deux PC (avancé)</li><li>En cas de problème</li></ol></div>
+
+<h2>1. Le principe</h2>
+<p>Chaque application vit sous son propre préfixe : <code>http://&lt;adresse-du-pc&gt;:8080/apps/&lt;identifiant&gt;</code>. L'identifiant s'écrit en minuscules, chiffres et tirets (par exemple <code>budget</code> ou <code>recettes</code>).</p>
+<p>Les applications tournent sur le PC ; le téléphone, sur le même Wi-Fi, s'y connecte avec le QR code de l'accueil. Les applications se gèrent depuis le PC (la gestion n'est pas accessible depuis le téléphone).</p>
+
+<h2>2. Importer un .zip (méthode simple)</h2>
+<ol class="steps">
+<li><b>Ouvrez « Ajouter une application »</b> depuis le PC : l'onglet Applications, bouton « + Ajouter une application » ou la tuile « + ». Déposez le .zip de votre projet.</li>
+<li><b>Vérifiez</b> le nom, la description et l'identifiant (l'adresse sera <code>/apps/&lt;identifiant&gt;</code>), puis touchez « Compiler et installer » (ou « Installer » pour un projet déjà compilé).</li>
+<li><b>Patientez</b> : la progression se fait par phases (préparation, dépendances, compilation, démarrage). Vous pouvez quitter la page et revenir, le suivi reprend. Puis « Ouvrir ».</li>
+</ol>
+<p>La tuile apparaît sur l'accueil et l'application démarre. Le menu <b>⋯</b> de la tuile donne le journal, le redémarrage et les réglages. Importer une application dont l'identifiant existe déjà la <b>remplace</b> (mise à jour) ; ses données sont conservées.</p>
+
+<h2>3. Les trois sortes de .zip</h2>
+<table><tr><th style="width:26%">Contenu du .zip</th><th>Ce qui se passe</th></tr>
+<tr><td><b>Projet source Next.js</b><br><span class="muted">package.json, sans node_modules ni .next</span></td><td>Compilé sur ce PC. Il faut une connexion Internet : la première fois, l'outil npm puis les dépendances sont téléchargés (quelques minutes, plus rapide ensuite). Le préfixe <code>/apps/&lt;identifiant&gt;</code>, la sortie autonome et l'ignorance des erreurs de type sont ajoutés automatiquement : inutile de modifier <code>next.config</code>. La progression est affichée, on peut annuler ; en cas d'échec, les dernières lignes du journal sont montrées.</td></tr>
+<tr><td><b>Projet incomplet</b><br><span class="muted">quelques fichiers en vrac (page.tsx, layout.tsx…)</span></td><td>La structure est reconstruite : page.tsx et layout.tsx vont dans <code>app/</code>, les autres fichiers sont retrouvés par leurs imports (« @/types/x » devient <code>types/x.ts</code>), package.json et tsconfig.json sont créés, les paquets importés (bootstrap…) sont ajoutés.</td></tr>
+<tr><td><b>Projet déjà compilé</b><br><span class="muted">.next/standalone, .next/static, public</span></td><td>Installé tel quel, sans compilation. C'est aussi le dossier produit par <code>preparer-application.mjs</code>.</td></tr></table>
+<div class="warn"><b>Modules natifs.</b> Une application qui utilise des modules natifs (Prisma, better-sqlite3, sharp…) doit être compilée sur le système où elle tournera : une compilation faite sous Windows ne fonctionnera pas sous Ubuntu, et inversement. Importez le .zip source sur chaque machine plutôt qu'un projet compilé ailleurs.</div>
+
+<h2>4. Le fichier app.json</h2>
+<p>La plateforme l'écrit à l'import, dans <code>apps/&lt;identifiant&gt;/app.json</code>. Vous pouvez l'ouvrir pour le modifier (puis redémarrer l'application).</p>
+<table><tr><th style="width:22%">Champ</th><th>Rôle</th></tr>
+<tr><td><code>name</code></td><td>Nom affiché sur la tuile.</td></tr>
+<tr><td><code>description</code></td><td>Phrase sous le nom.</td></tr>
+<tr><td><code>icon</code></td><td>Logo de la tuile, relatif au dossier <code>public/</code> (ex. <code>"/icon-192.png"</code>). Écrit automatiquement quand un logo usuel est trouvé (voir 5).</td></tr>
+<tr><td><code>actions</code></td><td>Boutons de la tuile : <code>[{ "label": "Ouvrir", "path": "/" }, { "label": "Scanner", "path": "/scan" }]</code></td></tr>
+<tr><td><code>storage</code></td><td><code>"pc"</code> ou <code>"off"</code> : données du navigateur gardées sur le PC (voir 5). Par défaut, détecté automatiquement.</td></tr>
+<tr><td><code>sync</code></td><td>Synchronisation entre deux PC (voir 8).</td></tr>
+<tr><td><code>basePath</code>, <code>entry</code></td><td>Gérés par la plateforme (<code>/apps/&lt;identifiant&gt;</code> et <code>server.js</code>) : à ne pas changer.</td></tr></table>
+<p>La <b>version</b> affichée sur l'accueil est celle du <code>package.json</code> du projet (champ <code>"version"</code>).</p>
+
+<h2>5. Ce que fait la plateforme pour vous</h2>
+<h3>Logo</h3>
+<p>Le logo est cherché dans <code>public/</code> : <code>icon-192.png</code>, <code>icon-512.png</code>, <code>icon.png</code>, <code>icon.svg</code>, <code>apple-touch-icon.png</code>, <code>logo.png</code>, <code>favicon.png / .svg / .ico</code> (dans cet ordre) et son chemin est inscrit dans <code>app.json</code>. Pour un autre fichier : <code>"icon": "/mon-logo.png"</code>. Sans logo, la tuile montre l'initiale de l'application.</p>
+<h3>Appels fetch("/api/…")</h3>
+<p>Les applications vivent sous <code>/apps/&lt;identifiant&gt;</code>. Le préfixe est ajouté automatiquement aux appels <code>fetch</code> et <code>XMLHttpRequest</code> vers « /… » : une application qui écrit <code>fetch("/api/produits")</code> fonctionne sans modification.</p>
+<h3>Prisma + SQLite</h3>
+<ul><li>La base est créée dans le dossier de données (fichier <code>base.db</code>), jamais dans l'application.</li>
+<li>À chaque démarrage, les tables et colonnes manquantes sont créées d'après <code>prisma/schema.prisma</code>. Rien n'est supprimé : vos données restent quand vous ajoutez des champs.</li>
+<li><code>DATABASE_URL</code> est fournie automatiquement.</li>
+<li>Seul SQLite est pris en charge (pas PostgreSQL ni MySQL). Les messages « [base de données] … » apparaissent dans le journal.</li></ul>
+<h3>Données sur le PC (applications qui gardent tout dans le navigateur)</h3>
+<p>Une application qui range ses données dans le <code>localStorage</code> est reconnue automatiquement. Le PC garde alors la copie de référence : chaque modification faite sur le téléphone ou le PC lui est envoyée aussitôt, et chaque appareil reçoit les données du PC à l'ouverture. Les listes d'éléments (objets avec un champ <code>id</code>) sont fusionnées élément par élément ; sinon la modification la plus récente l'emporte. Hors connexion, un témoin « En attente d'envoi au PC » s'affiche et l'envoi reprend au retour du Wi-Fi. Réglage : Réglages, « Données sur le PC », ou <code>"storage"</code> dans app.json.</p>
+<h3>Liens entre applications (onglet « Liens »)</h3>
+<p>L'onglet <b>Liens</b> de Triviae montre quelles applications échangent des données entre elles : un schéma en étoile (les pointillés en mouvement vont de l'application qui fournit vers celle qui reçoit) et, pour chaque application, ce qu'elle reçoit et ce qu'elle envoie. Une application déclare ses liens de deux façons :</p>
+<ul><li><b>Liens fixes</b>, dans <code>app.json</code> : <code>"links": [{ "app": "plantes", "label": "Arrosages", "direction": "in" }]</code></li>
+<li><b>Liens choisis par l'utilisateur</b> (ex. l'agenda), par une route <code>GET /api/liens</code> qui répond <code>{ "links": [{ "app": "plantes", "label": "Arrosages", "direction": "in" }] }</code>.</li></ul>
+<p><code>direction</code> : <code>"in"</code> (défaut) = l'application reçoit des données de l'autre, <code>"out"</code> = elle lui en envoie, <code>"both"</code> = dans les deux sens. <code>app</code> est l'identifiant de l'autre application ; pour un site extérieur, écrivez <code>"name": "Nom"</code> à la place. L'application doit être démarrée ; arrêtée, ses derniers liens connus restent affichés. Un lien vers une application non installée est signalé en rouge.</p>
+<h3>Retour à « Triviae »</h3>
+<p>Dans chaque application, un petit onglet bleu au bord de l'écran ramène à la liste (il se déplie au survol). On peut le faire glisser en hauteur ou de l'autre côté de l'écran ; sa position est mémorisée.</p>
+<h3>Où écrire les données de l'application</h3>
+<p>Une application qui enregistre des fichiers (JSON, images envoyées…) doit écrire dans <code>process.env.DATA_DIR</code> (fourni par la plateforme), pas dans son dossier :</p>
+<pre>const DATA_DIR = process.env.DATA_DIR ?? path.join(process.cwd(), "data");</pre>
+<p>Pour les adresses écrites à la main (<code>&lt;img src="/…"&gt;</code>), ajoutez le préfixe : <code>(process.env.NEXT_PUBLIC_BASE_PATH ?? "") + chemin</code>. Les <code>&lt;Link&gt;</code>, <code>redirect()</code> et le routeur le font tout seuls.</p>
+
+<h2>6. Préparer le projet à la main (avancé)</h2>
+<p>Utile pour compiler vous-même ou installer sans passer par l'import.</p>
+<ol class="steps">
+<li><b>Dans le projet</b> (une fois), dans <code>next.config.ts</code> :
+<pre>const basePath = process.env.BASE_PATH ?? "";
+const nextConfig = {
+  ...(basePath ? { basePath } : {}),
+  ...(process.env.STANDALONE ? { output: "standalone" } : {}),
+  env: { NEXT_PUBLIC_BASE_PATH: basePath },
+};</pre></li>
+<li><b>Compiler</b> sur le système qui fera tourner l'application.
+<pre>Windows (PowerShell) : $env:BASE_PATH="/apps/budget"; $env:STANDALONE="1"; npx next build
+Ubuntu               : BASE_PATH=/apps/budget STANDALONE=1 npx next build</pre></li>
+<li><b>Préparer le dossier</b> (Node.js installé pour cette étape) :
+<pre>node outils/preparer-application.mjs /chemin/du/projet budget --nom "Mon budget" --description "Suivi des dépenses"</pre>
+Cela crée <code>apps/budget</code>, avec son <code>app.json</code> (logo détecté).</li>
+<li><b>Accueil</b> : « Ou copier le dossier à la main », puis « Chercher de nouvelles applications ». La tuile apparaît ; le téléphone la voit au prochain rechargement.</li>
+</ol>
+
+<h2>7. Utiliser sans le PC (téléphone)</h2>
+<p>Sur le téléphone, ouvrez Triviae puis <b>« Copie sur le téléphone »</b>.</p>
+<ol class="steps">
+<li><b>Installez une fois le certificat du PC</b> (bouton « Télécharger le certificat », puis réglages Android : Sécurité, Chiffrement et identifiants, Installer un certificat, Certificat d'autorité).</li>
+<li><b>Ouvrez la version sécurisée</b> (https, même adresse et même port) et touchez « Enregistrer la copie ».</li></ol>
+<p>Hors ligne, le téléphone sert les pages déjà ouvertes ou enregistrées. Les données « sur le PC » restent utilisables et repartent vers le PC au retour du Wi-Fi ; les données d'une base (Prisma/SQLite) sont en lecture seule (dernière version consultée).</p>
+<div class="note"><b>Envoyer des données au PC depuis le téléphone.</b> Une route API reçoit les fichiers ; une file d'attente sur le téléphone garde l'envoi tant que le PC est injoignable ; un identifiant unique par élément évite les doublons. En http simple, évitez <code>crypto.randomUUID()</code> et les service workers : ils exigent un contexte sécurisé.</div>
+
+<h2>8. Synchronisation entre deux PC (facultatif)</h2>
+<p>Une application peut participer à la synchronisation Windows / Ubuntu. Dans son <code>app.json</code> : <code>"sync": { "path": "/api/sync" }</code>, et l'application expose sous ce chemin trois routes que seul le hub peut appeler :</p>
+<pre>GET  &lt;path&gt;/state       toutes les données, suppressions comprises (JSON)
+POST &lt;path&gt;/merge       reçoit l'état de l'autre PC, le fusionne,
+                        renvoie { state, needFiles: [fichiers manquants] }
+GET  &lt;path&gt;/file/&lt;nom&gt;  un fichier (photo…)     PUT : reçoit un fichier</pre>
+<ul><li>Le hub ajoute l'en-tête <code>x-sync-token</code> (variable <code>SYNC_TOKEN</code> fournie à l'application) : l'application refuse toute requête sans lui et revalide les données reçues champ par champ.</li>
+<li>Chaque enregistrement a un identifiant et une date <code>updatedAt</code> ; une suppression laisse un « tombeau » (<code>deletedAt</code>) ; la fusion est symétrique (A puis B donne le même résultat que B puis A).</li></ul>
+
+<h2>9. En cas de problème</h2>
+<table><tr><th style="width:36%">Symptôme</th><th>À faire</th></tr>
+<tr><td>L'application ne démarre pas ou affiche une erreur</td><td>Menu ⋯ de la tuile (ou Réglages), « Journal » : il montre ce que l'application a écrit. Elle est relancée automatiquement si elle s'arrête ; « Redémarrer » force un nouveau démarrage.</td></tr>
+<tr><td>Erreur 500 avec Prisma</td><td>Ouvrez le journal. Une ligne « [réparation] module externe… » est normale. Si l'erreur persiste, envoyez les premières lignes du journal.</td></tr>
+<tr><td>Erreur « sharp » / ERR_DLOPEN_FAILED (images, Windows)</td><td>L'optimisation d'images de Next.js (module natif « sharp ») ne se charge pas toujours. La plateforme sert maintenant les images telles quelles (<code>images.unoptimized</code>) : réimportez le .zip source de l'application pour appliquer ce réglage.</td></tr>
+<tr><td>La compilation échoue</td><td>Les dernières lignes du journal de compilation sont affichées à l'import. Vérifiez la connexion Internet et que le projet compile chez vous avec <code>npx next build</code>.</td></tr>
+<tr><td>Le logo n'apparaît pas</td><td>Vérifiez que le fichier est dans <code>public/</code> (ex. <code>public/icon-192.png</code>) ou indiquez <code>"icon"</code> dans app.json.</td></tr>
+<tr><td>L'onglet bleu « Triviae » manque</td><td>Rechargez la page (Ctrl+F5) et vérifiez que Triviae est à jour puis redémarré.</td></tr>
+<tr><td>Une image ou un appel ne trouve pas son adresse</td><td>Ajoutez le préfixe aux adresses écrites à la main (voir 5).</td></tr></table>
+</body></html>

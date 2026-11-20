@@ -1,0 +1,97 @@
+MAPETITEBOÎTE
+================
+Une plateforme pour faire tourner vos applications Next.js sur ce PC Windows et les utiliser
+depuis votre téléphone (par le Wi-Fi de la maison), par exemple pour envoyer des photos.
+Rien à installer à côté : Node.js est déjà inclus.
+
+DÉMARRER
+--------
+1. Dézippez ce dossier où vous voulez (par exemple C:\Triviae ou Documents).
+2. Double-cliquez sur Triviae.exe.
+   - Si Windows affiche « Windows a protégé votre ordinateur » : cliquez « Informations
+     complémentaires » puis « Exécuter quand même » (le programme n'est pas signé, c'est normal).
+   - Une fenêtre noire s'ouvre : c'est le programme. Laissez-la ouverte. La fermer arrête tout.
+   - Au premier lancement, Windows demande une autorisation d'administrateur : acceptez.
+     Elle sert uniquement à laisser le téléphone se connecter au PC (pare-feu, réseaux privés).
+   - Un raccourci « Triviae » est créé sur le Bureau.
+3. Votre navigateur s'ouvre sur la page d'accueil : vos applications en tuiles, et un QR code.
+
+SUR LE TÉLÉPHONE
+----------------
+Téléphone connecté au même Wi-Fi que le PC : scannez le QR code affiché sur la page d'accueil du PC (ou tapez l'adresse
+affichée dans Chrome). Menu ⋮ puis « Ajouter à l'écran d'accueil » : l'application a son icône.
+
+DÉMARRER AVEC WINDOWS
+---------------------
+Onglet Réglages (vu depuis le PC) : « Démarrer avec l'ordinateur ».
+
+VOS DONNÉES
+-----------
+Elles sont rangées hors du programme, dans :  %APPDATA%\Triviae\Données\<application>
+Remplacer ce dossier par une nouvelle version n'efface donc rien. Pour sauvegarder, copiez ce dossier.
+
+Reprendre les données d'une application « Mes plantes » déjà utilisée seule : copiez le contenu de
+son ancien dossier data (plants.json, seedlings.json, dossier uploads) dans
+%APPDATA%\Triviae\Données\plantes\  (application fermée).
+
+UN SEUL PC AVEC WINDOWS ET UBUNTU (double démarrage)
+----------------------------------------------------
+Par défaut, chaque système range ses données dans SON dossier : ce que vous créez sous Windows
+n'apparaît donc pas sous Ubuntu. Pour partager, utilisez un disque (ou une partition) lisible par
+les deux systèmes, en général une partition NTFS ou exFAT de données :
+1. Sous Windows : onglet Synchronisation > « Où sont rangées vos données » > « Parcourir les dossiers… » : choisissez le disque,
+   entrez dans les sous-dossiers, créez-en un si besoin (« Créer »), puis « Utiliser ce dossier ».
+   Vos plantes actuelles sont COPIÉES dans « Triviae - Données » sur ce disque.
+2. Sous Ubuntu : ouvrez le gestionnaire de fichiers et cliquez sur la partition pour la monter,
+   puis onglet Synchronisation > « Où sont rangées vos données » > « Parcourir les dossiers… » > le même disque et le même dossier.
+   Rien n'est écrasé : si Ubuntu a déjà ses propres données, elles restent dans l'ancien dossier.
+3. Ensuite, tout ce que vous créez sous l'un est visible sous l'autre après redémarrage.
+À savoir :
+- Windows : désactivez le « Démarrage rapide » (Options d'alimentation > Choisir l'action des boutons
+  > Modifier des paramètres non disponibles). Sinon Ubuntu voit le disque en lecture seule ou refuse de le monter.
+- Si le disque n'est pas monté au démarrage, les applications ne se lancent PAS (pour ne pas créer
+  de données vides ailleurs) : l'onglet Synchronisation l'indique, montez le disque puis « Réessayer ».
+- N'utilisez pas la synchronisation « deux PC » entre Windows et Ubuntu du même PC : le dossier
+  partagé suffit. Elle reste utile avec un autre ordinateur (portable).
+
+SYNCHRONISER DEUX ORDINATEURS (Windows et Ubuntu)
+-------------------------------------------------
+Installez « Triviae » sur chacun des deux ordinateurs (même version), tous deux sur le Wi-Fi
+ou le réseau de la maison. Le jumelage ne se fait qu'une fois :
+
+1. Premier ordinateur : onglet Synchronisation > « Synchronisation entre deux PC » > « Afficher un code sur ce PC ».
+   Une adresse (ex. 192.168.1.20:8080) et un code à 8 chiffres s'affichent (valables 5 minutes, un seul usage).
+2. Second ordinateur : même section > « Jumeler un autre PC » > saisissez l'adresse et le code > « Jumeler ».
+
+Ensuite, tout est automatique : dès que les deux ordinateurs sont allumés, puis toutes les 5 minutes, les plantes,
+semis, arrosages et photos sont fusionnés. Le bouton « Synchroniser maintenant » force un échange.
+- Ce que vous ajoutez sur un PC (arrosage, photo, semis) arrive sur l'autre ; les ajouts faits des deux côtés
+  sont réunis, rien n'est écrasé.
+- Une suppression est propagée à l'autre PC. Si la même fiche est modifiée des deux côtés (par exemple le nom),
+  la modification la plus récente l'emporte.
+- Un PC éteint ou hors du Wi-Fi rattrape son retard au prochain allumage ; rien n'est perdu.
+- Les photos prises avec le téléphone vont sur le PC auquel il est connecté, puis sur l'autre à la synchronisation.
+- Les deux PC doivent avoir la bonne heure (réglage automatique de l'heure), sinon la synchronisation est refusée.
+- Les échanges sont signés avec un secret créé au jumelage : sans lui, personne ne peut lire ni écrire vos données.
+  Ils ne sont pas chiffrés (réseau de la maison en http).
+- « Retirer » dans la liste des PC jumelés supprime le jumelage ; les données déjà synchronisées restent sur les deux PC.
+
+SI LE TÉLÉPHONE N'ARRIVE PAS À SE CONNECTER
+-------------------------------------------
+- Le PC et le téléphone doivent être sur le même Wi-Fi (désactivez les données mobiles pour tester).
+- Tapez bien http:// au début de l'adresse (sans http://, Chrome essaie https et échoue).
+- Pare-feu : dans l'onglet Réglages (depuis le PC), le bouton « Autoriser le téléphone ».
+- Windows : Paramètres > Réseau et Internet > Wi-Fi > votre réseau > Type de profil : « Privé ».
+- Box : désactivez l'« isolation des clients » (aussi appelée isolation AP), surtout sur un réseau invité.
+- Plusieurs adresses sont parfois proposées (cartes réseau virtuelles) : essayez l'autre lien.
+- Si Triviae.exe ne se lance pas du tout : utilisez « Demarrer (secours).bat ».
+
+SÉCURITÉ
+--------
+Il n'y a pas de mot de passe : toute personne connectée à votre Wi-Fi peut ouvrir vos applications.
+N'exposez pas ce PC sur Internet (pas de redirection de port sur la box).
+Les actions d'administration (redémarrer, quitter, pare-feu) ne sont possibles que depuis le PC.
+
+AJOUTER D'AUTRES APPLICATIONS
+-----------------------------
+Voir AJOUTER-UNE-APPLICATION.pdf.

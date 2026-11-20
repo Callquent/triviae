@@ -1,0 +1,1 @@
+{ "main": "launcher-sea.js", "output": "sea.blob", "disableExperimentalSEAWarning": true, "useSnapshot": false, "useCodeCache": false }

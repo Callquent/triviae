@@ -1,0 +1,38 @@
+# Fabrique les paquets Windows et Ubuntu.
+# - à chaque push sur main : les paquets sont disponibles dans l'onglet Actions (artefacts) ;
+# - quand on crée une étiquette (git tag v1.0.0 && git push --tags) : ils sont aussi joints à une « Release ».
+name: Paquets
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  paquets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Dépendances du hub
+        run: cd hub && npm ci
+      - name: Fabrication des paquets
+        run: scripts/package-all.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paquets
+          path: |
+            build/dist/Triviae.zip
+            build/dist/Triviae-complet.zip
+            build/dist/Triviae-ubuntu.tar.gz
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/dist/Triviae.zip
+            build/dist/Triviae-complet.zip
+            build/dist/Triviae-ubuntu.tar.gz
