@@ -30,7 +30,7 @@ function fetchLinks(rec) {
       (res) => {
         if (res.statusCode !== 200 || !String(res.headers["content-type"] || "").includes("json")) {
           res.resume();
-          return resolve(null);
+          return resolve(res.statusCode === 404 || res.statusCode === 200 ? "gone" : null); // la route n'existe plus : on oublie les anciens liens
         }
         let body = "";
         res.setEncoding("utf8");
@@ -67,7 +67,10 @@ async function collect() {
       let state = "none"; // none = aucune déclaration, live = lu à l'instant, last = dernière valeur connue, off = arrêtée sans valeur connue
       if (rec.status === "running") {
         dyn = await fetchLinks(rec);
-        if (dyn) {
+        if (dyn === "gone") {
+          known.delete(rec.def.id);
+          dyn = null;
+        } else if (dyn) {
           known.set(rec.def.id, dyn);
           state = "live";
         }
