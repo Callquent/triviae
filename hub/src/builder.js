@@ -234,6 +234,73 @@ function newJob(id) {
 }
 
 /**
+ * Copie un dossier en remplaçant chaque lien symbolique par une vraie copie de sa cible
+ * (Nitro range ses dépendances dans node_modules/.nitro/ et les relie par des liens absolus, qui casseraient une fois le dossier déplacé).
+ */
+function copyResolved(src, dst, depth) {
+  if (depth > 40) return;
+  const st = fs.statSync(src);
+  if (st.isDirectory()) {
+    fs.mkdirSync(dst, { recursive: true });
+    for (const n of fs.readdirSync(src)) {
+      if (n === ".nitro" && path.basename(path.dirname(src)) !== ".nitro" && path.basename(src) === "node_modules") continue; // déjà recopié via les liens
+      copyResolved(path.join(src, n), path.join(dst, n), depth + 1);
+    }
+  } else if (st.isFile()) {
+    fs.copyFileSync(src, dst);
+  }
+}
+
+/** Version installée d'un paquet du projet ("" si absent). */
+function installedVersion(workDir, name) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(workDir, "node_modules", ...name.split("/"), "package.json"), "utf8")).version || "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Projet Nuxt : npm install, nuxt build avec le préfixe /apps/<id>, puis on emporte .output (serveur Nitro autonome).
+ * Le préfixe passe par NUXT_APP_BASE_URL, que Nuxt lit lui-même : le nuxt.config du projet n'est pas modifié.
+ */
+async function buildNuxt(job, { id, workDir, outDir, pkg }) {
+  const npmCli = await toolchain.ensureNpm((s) => job.say(s));
+  if (job.cancelled) throw Object.assign(new Error("Annulé."), { user: true, cancelled: true });
+  const cache = path.join(DATA, "toolchain", "npm-cache");
+  await run(job, "Installation des dépendances (quelques minutes la première fois)", [npmCli, "install", "--no-audit", "--no-fund", "--no-update-notifier", "--loglevel=error", "--cache", cache, "--include=dev"], { cwd: workDir, env: { npm_config_progress: "false" }, minutes: 25 });
+  const nuxtBin = path.join(workDir, "node_modules", "nuxt", "bin", "nuxt.mjs");
+  if (!fs.existsSync(nuxtBin)) throw Object.assign(new Error("Nuxt n'a pas été installé (vérifiez package.json)."), { user: true, showLog: true });
+  await run(job, "Compilation de l'application", [nuxtBin, "build"], {
+    cwd: workDir,
+    env: { NUXT_APP_BASE_URL: `/apps/${id}/`, NITRO_PRESET: "node-server", NUXT_TELEMETRY_DISABLED: "1", NODE_ENV: "production", CI: "1" },
+    minutes: 25,
+  });
+  const output = path.join(workDir, ".output");
+  if (!fs.existsSync(path.join(output, "server", "index.mjs"))) {
+    throw Object.assign(new Error("La compilation n'a pas produit .output/server/index.mjs. Le projet est-il bien une application Nuxt à rendu serveur (et non « nuxt generate ») ?"), { user: true, showLog: true });
+  }
+  job.say("Assemblage de l'application");
+  fs.rmSync(outDir, { recursive: true, force: true });
+  fs.mkdirSync(outDir, { recursive: true });
+  copyResolved(output, path.join(outDir, ".output"), 0);
+  // point d'entrée commun à toutes les applications (node --require watchdog.js server.js)
+  fs.writeFileSync(path.join(outDir, "server.js"), 'import("./.output/server/index.mjs");\n');
+  // Prisma : le schéma sert à créer / compléter les tables SQLite au démarrage
+  const schema = path.join(workDir, "prisma");
+  if (fs.existsSync(schema)) {
+    fs.cpSync(schema, path.join(outDir, "prisma"), { recursive: true, dereference: true });
+    fs.rmSync(path.join(outDir, "prisma", "dev.db"), { force: true });
+    fs.rmSync(path.join(outDir, "prisma", "dev.db-journal"), { force: true });
+  }
+  const tech = [["nuxt", "Nuxt"], ["vue", "Vue"], ["@prisma/client", "Prisma"], ["tailwindcss", "Tailwind CSS"], ["typescript", "TypeScript"]]
+    .map(([n, label]) => ({ label, version: installedVersion(workDir, n) }))
+    .filter((t) => t.version);
+  fs.writeFileSync(path.join(outDir, "package.json"), JSON.stringify({ name: pkg.name || id, version: pkg.version || "", private: true, maTech: tech }, null, 2));
+  return outDir;
+}
+
+/**
  * @param job   suivi (voir newJob)
  * @param opts  { id, workDir (déjà rempli par l'extraction), loose }
  * @returns {Promise<string>} dossier de l'application assemblée (standalone + static + public)
@@ -245,7 +312,9 @@ async function build(job, { id, workDir, loose, outDir }) {
   }
   if (!fs.existsSync(path.join(workDir, "package.json"))) throw Object.assign(new Error("package.json est introuvable dans le projet."), { user: true });
   const pkg = JSON.parse(fs.readFileSync(path.join(workDir, "package.json"), "utf8"));
-  if (!{ ...pkg.dependencies, ...pkg.devDependencies }.next) throw Object.assign(new Error("Ce projet n'utilise pas Next.js (pas de « next » dans package.json)."), { user: true });
+  const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
+  if (allDeps.nuxt) return buildNuxt(job, { id, workDir, outDir, pkg });
+  if (!allDeps.next) throw Object.assign(new Error("Ce projet n'utilise ni Next.js ni Nuxt (ni « next » ni « nuxt » dans package.json)."), { user: true });
   // Projet TypeScript dont package.json oublie TypeScript ou ses types : Next.js refuserait de compiler.
   const tsUsed = (function has(d) {
     return fs.readdirSync(d, { withFileTypes: true }).some((n) => (n.isDirectory() ? !SKIP.test(n.name) && has(path.join(d, n.name)) : /\.tsx?$/.test(n.name)));

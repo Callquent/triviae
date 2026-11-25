@@ -520,7 +520,7 @@ function home(o) {
   const addTile = o.local ? `<li><a class="tile-add" href="/importer"><span class="plus" aria-hidden="true">+</span>Ajouter une application</a></li>` : "";
   const tiles = o.apps.length
     ? `<ul class="tiles">${o.apps.map((r) => tile(r, o.local)).join("")}${addTile}</ul>`
-    : `<div class="panel" style="justify-items:start"><h2>Aucune application pour l'instant</h2><p class="muted">Importez le .zip de votre projet Next.js : il est installé et démarré automatiquement.</p>${o.local ? `<a class="btn" href="/importer">Ajouter une application</a>` : ""}</div>`;
+    : `<div class="panel" style="justify-items:start"><h2>Aucune application pour l'instant</h2><p class="muted">Importez le .zip de votre projet Next.js ou Nuxt : il est installé et démarré automatiquement.</p>${o.local ? `<a class="btn" href="/importer">Ajouter une application</a>` : ""}</div>`;
 
   return shell(
     o,
@@ -594,7 +594,7 @@ function importPage(o) {
   return shell(
     o,
     "apps",
-    `<div class="page-head"><a class="link" href="/" style="justify-self:start;margin-left:-8px">← Applications</a><h1>Ajouter une application</h1><p class="muted">Importez le .zip de votre projet Next.js. Rien n'est installé avant votre validation.</p></div>
+    `<div class="page-head"><a class="link" href="/" style="justify-self:start;margin-left:-8px">← Applications</a><h1>Ajouter une application</h1><p class="muted">Importez le .zip de votre projet Next.js ou Nuxt. Rien n'est installé avant votre validation.</p></div>
 <ol class="stepper" aria-label="Étapes"><li id="st1" aria-current="step"><b>1</b>Fichier</li><li id="st2"><b>2</b>Vérification</li><li id="st3"><b>3</b>Installation</li></ol>
 
 <section id="v1" class="panel" aria-label="Choisir le fichier">
@@ -605,7 +605,7 @@ function importPage(o) {
 <p id="imp-msg" class="warn" hidden role="alert"></p>
 <div><strong>Ce qui est accepté</strong>
 <div class="kinds" style="margin-top:8px">
-<div class="kind"><strong>Projet source</strong><span class="muted">Avec package.json, sans node_modules. Compilé sur ce PC (Internet nécessaire, quelques minutes la première fois).</span></div>
+<div class="kind"><strong>Projet source Next.js ou Nuxt</strong><span class="muted">Avec package.json, sans node_modules ni .next / .output. Compilé sur ce PC (Internet nécessaire, quelques minutes la première fois).</span></div>
 <div class="kind"><strong>Fichiers en vrac</strong><span class="muted">page.tsx, layout.tsx… sans dossiers ni package.json : la structure est reconstruite automatiquement.</span></div>
 <div class="kind"><strong>Déjà compilé</strong><span class="muted">Dossier .next/standalone (ou créé par preparer-application.mjs) : installé sans compilation.</span></div></div></div>
 <details><summary>Compiler soi-même avant d'envoyer</summary><div style="display:grid;gap:8px;margin-top:10px" class="muted">

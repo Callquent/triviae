@@ -1,6 +1,6 @@
 # Triviae — sources
 
-Hub Node qui héberge plusieurs applications Next.js sur un PC (Windows ou Ubuntu) et les rend utilisables depuis le téléphone.
+Hub Node qui héberge plusieurs applications Next.js ou Nuxt sur un PC (Windows ou Ubuntu) et les rend utilisables depuis le téléphone.
 
 ## Structure
 

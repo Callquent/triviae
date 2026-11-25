@@ -1,4 +1,4 @@
-// Importer une application Next.js depuis un .zip, en deux temps :
+// Importer une application Next.js ou Nuxt depuis un .zip, en deux temps :
 //   1. stage()   : réception du .zip, analyse, rien n'est installé ;
 //   2. confirm() : installation (remplace l'application du même identifiant, ses données ne sont pas touchées).
 const fs = require("fs");
@@ -62,6 +62,7 @@ async function analyzeSource(file, entries, filename) {
   const pk = usable.map((e) => e.name).filter((n) => /(^|\/)package\.json$/.test(n)).sort((x, y) => depth(x) - depth(y))[0];
   let root = "";
   let loose = false;
+  let framework = "next";
   let pkg = {};
   if (pk) {
     root = pk.slice(0, -"package.json".length);
@@ -70,8 +71,13 @@ async function analyzeSource(file, entries, filename) {
     } catch {
       throw fail("Le fichier package.json de l'archive est illisible.");
     }
-    if (!{ ...pkg.dependencies, ...pkg.devDependencies }.next) throw fail("Ce projet n'utilise pas Next.js (pas de « next » dans package.json).");
+    const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+    if (deps.nuxt) framework = "nuxt";
+    else if (!deps.next) throw fail("Ce projet n'utilise ni Next.js ni Nuxt (ni « next » ni « nuxt » dans package.json).");
   } else {
+    if (usable.some((e) => /(^|\/)nuxt\.config\.(ts|js|mjs)$/.test(e.name))) {
+      throw fail("Ce projet Nuxt n'a pas de package.json. Ajoutez-le à l'archive (avec ses dépendances, mais sans node_modules ni .output).");
+    }
     const marked = usable.some((e) => /(^|\/)(page|layout)\.(tsx?|jsx?)$|(^|\/)next\.config\.(mjs|js|cjs|ts)$/.test(e.name));
     if (!marked) {
       throw fail(
@@ -93,7 +99,13 @@ async function analyzeSource(file, entries, filename) {
   const plan = usable.filter((e) => e.name.startsWith(root)).map((e) => ({ entry: e, rel: e.name.slice(root.length) }));
   const layoutEntry = plan.filter((p) => /(^|\/)layout\.(tsx|jsx|js)$/.test(p.rel)).sort((x, y) => depth(x.rel) - depth(y.rel))[0];
   let meta = {};
-  if (layoutEntry && layoutEntry.entry.usize < 200_000) {
+  const nuxtCfg = framework === "nuxt" ? plan.find((p) => /^nuxt\.config\.(ts|js|mjs)$/.test(p.rel)) : null;
+  if (nuxtCfg && nuxtCfg.entry.usize < 200_000) {
+    try {
+      const t = await zip.readText(file, nuxtCfg.entry, 200_000);
+      meta = { title: (/\btitle:\s*(["'`])([^"'`\n]{1,80})\1/.exec(t) || [])[2] || "", description: (/\bname:\s*["']description["']\s*,\s*content:\s*(["'`])([^"'`\n]{1,200})\1/.exec(t) || [])[2] || "" };
+    } catch {}
+  } else if (layoutEntry && layoutEntry.entry.usize < 200_000) {
     try {
       meta = builder.metaFrom(await zip.readText(file, layoutEntry.entry, 200_000));
     } catch {}
@@ -105,6 +117,7 @@ async function analyzeSource(file, entries, filename) {
   if (loose) warnings.push("Le projet est incomplet (pas de package.json ou de dossiers) : sa structure sera reconstruite automatiquement.");
   return {
     kind: "source",
+    framework,
     loose,
     plan,
     id,
@@ -340,6 +353,7 @@ function startBuild(token, p, opts) {
         await zip.extractTo(p.file, entry, dest);
       }
       await builder.build(job, { id, workDir: work, loose: info.loose, outDir: out });
+      const framework = info.framework || "next";
       const previous = readJson(path.join(APPS_DIR, id, "app.json"));
       fs.writeFileSync(
         path.join(out, "app.json"),
@@ -349,6 +363,7 @@ function startBuild(token, p, opts) {
             description,
             basePath: `/apps/${id}`,
             entry: "server.js",
+            ...(framework === "nuxt" ? { framework: "nuxt" } : {}),
             ...(typeof previous.icon === "string" ? { icon: previous.icon } : {}),
             actions: Array.isArray(previous.actions) && previous.actions.length ? previous.actions : [{ label: "Ouvrir", path: "/" }],
             ...(previous.sync ? { sync: previous.sync } : {}),

@@ -27,7 +27,7 @@ th{background:#eaf1f9}
 .tag{display:inline-block;font-size:8.5pt;font-weight:700;background:#dbe6f3;color:#1f5fa8;border-radius:999px;padding:1px 8px;margin-left:6px;vertical-align:2px}
 </style></head><body>
 
-<div class="cover"><h1>Ajouter une application</h1><p>Guide pour installer vos applications Next.js dans « Triviae » : importer un .zip, régler l'application, comprendre ce qui est automatique.</p></div>
+<div class="cover"><h1>Ajouter une application</h1><p>Guide pour installer vos applications Next.js ou Nuxt dans « Triviae » : importer un .zip, régler l'application, comprendre ce qui est automatique.</p></div>
 
 <div class="toc"><strong>Sommaire</strong><ol>
 <li>Le principe</li><li>Importer un .zip (méthode simple)</li><li>Les trois sortes de .zip</li><li>Le fichier app.json</li><li>Ce que fait la plateforme pour vous</li><li>Préparer le projet à la main (avancé)</li><li>Utiliser sans le PC (téléphone)</li><li>Synchronisation entre deux PC (avancé)</li><li>En cas de problème</li></ol></div>
@@ -47,6 +47,7 @@ th{background:#eaf1f9}
 <h2>3. Les trois sortes de .zip</h2>
 <table><tr><th style="width:26%">Contenu du .zip</th><th>Ce qui se passe</th></tr>
 <tr><td><b>Projet source Next.js</b><br><span class="muted">package.json, sans node_modules ni .next</span></td><td>Compilé sur ce PC. Il faut une connexion Internet : la première fois, l'outil npm puis les dépendances sont téléchargés (quelques minutes, plus rapide ensuite). Le préfixe <code>/apps/&lt;identifiant&gt;</code>, la sortie autonome et l'ignorance des erreurs de type sont ajoutés automatiquement : inutile de modifier <code>next.config</code>. La progression est affichée, on peut annuler ; en cas d'échec, les dernières lignes du journal sont montrées.</td></tr>
+<tr><td><b>Projet source Nuxt</b><br><span class="muted">package.json avec « nuxt », sans node_modules ni .output</span></td><td>Compilé sur ce PC comme un projet Next.js (<code>nuxt build</code>, préfixe /apps/mon-id ajouté automatiquement : le nuxt.config n'est pas modifié). Le projet doit avoir un rendu serveur (pas <code>nuxt generate</code>). Les routes <code>server/api</code> et Prisma + SQLite fonctionnent ; seul un projet source est accepté (pas de .output déjà compilé).</td></tr>
 <tr><td><b>Projet incomplet</b><br><span class="muted">quelques fichiers en vrac (page.tsx, layout.tsx…)</span></td><td>La structure est reconstruite : page.tsx et layout.tsx vont dans <code>app/</code>, les autres fichiers sont retrouvés par leurs imports (« @/types/x » devient <code>types/x.ts</code>), package.json et tsconfig.json sont créés, les paquets importés (bootstrap…) sont ajoutés.</td></tr>
 <tr><td><b>Projet déjà compilé</b><br><span class="muted">.next/standalone, .next/static, public</span></td><td>Installé tel quel, sans compilation. C'est aussi le dossier produit par <code>preparer-application.mjs</code>.</td></tr></table>
 <div class="warn"><b>Modules natifs.</b> Une application qui utilise des modules natifs (Prisma, better-sqlite3, sharp…) doit être compilée sur le système où elle tournera : une compilation faite sous Windows ne fonctionnera pas sous Ubuntu, et inversement. Importez le .zip source sur chaque machine plutôt qu'un projet compilé ailleurs.</div>

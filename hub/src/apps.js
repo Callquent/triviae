@@ -38,7 +38,7 @@ function usesLocalStorage(dir) {
     }
     return false;
   };
-  return walk(path.join(dir, ".next", "static"), 0);
+  return walk(path.join(dir, ".next", "static"), 0) || walk(path.join(dir, ".output", "public"), 0);
 }
 
 /** Lit apps/<id>/app.json. Un dossier sans app.json valide est ignoré. */
@@ -59,16 +59,25 @@ function techInfo(dir, raw) {
     }
   };
   const out = [];
+  try {
+    // applications Nuxt : versions relevées à la compilation (le serveur Nitro n'emporte pas node_modules)
+    const maTech = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8")).maTech;
+    if (Array.isArray(maTech)) for (const t of maTech) if (t && typeof t.label === "string" && typeof t.version === "string") out.push({ label: t.label.slice(0, 40), version: t.version.slice(0, 40) });
+  } catch {}
+  if (out.length) return finish();
   for (const [n, label] of TECH) {
     const v = ver(n);
     if (v) out.push({ label, version: v });
   }
-  let db = "";
-  try {
-    const s = sqldb.findSchema(dir);
-    if (s) db = /provider\s*=\s*"sqlite"/i.test(fs.readFileSync(s, "utf8")) ? "SQLite" : "Base de données";
-  } catch {}
-  return { tech: out, db, version: String(raw.version || pkgVersion(dir) || ""), node: process.version.replace(/^v/, "") };
+  return finish();
+  function finish() {
+    let db = "";
+    try {
+      const s = sqldb.findSchema(dir);
+      if (s) db = /provider\s*=\s*"sqlite"/i.test(fs.readFileSync(s, "utf8")) ? "SQLite" : "Base de données";
+    } catch {}
+    return { tech: out, db, version: String(raw.version || pkgVersion(dir) || ""), node: process.version.replace(/^v/, "") };
+  }
 }
 
 const { findIcon } = require("./icon");
@@ -184,6 +193,8 @@ async function start(rec) {
       ...process.env,
       PORT: String(rec.port),
       HOSTNAME: "127.0.0.1", // seul le hub (et lui seul) est visible sur le réseau
+      HOST: "127.0.0.1", // idem pour Nuxt / Nitro
+      NITRO_HOST: "127.0.0.1",
       DATA_DIR: dataDir,
       SYNC_TOKEN: rec.syncToken,
       NODE_ENV: "production",
