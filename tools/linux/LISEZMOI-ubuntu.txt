@@ -37,7 +37,7 @@ n'apparaît donc pas sous Ubuntu. Pour partager, utilisez un disque (ou une part
 les deux systèmes, en général une partition NTFS ou exFAT de données :
 1. Sous Windows : onglet Synchronisation > « Où sont rangées vos données » > « Parcourir les dossiers… » : choisissez le disque,
    entrez dans les sous-dossiers, créez-en un si besoin (« Créer »), puis « Utiliser ce dossier ».
-   Vos plantes actuelles sont COPIÉES dans « Triviae - Données » sur ce disque.
+   Vos plantes actuelles sont COPIÉES dans « data » sur ce disque.
 2. Sous Ubuntu : ouvrez le gestionnaire de fichiers et cliquez sur la partition pour la monter,
    puis onglet Synchronisation > « Où sont rangées vos données » > « Parcourir les dossiers… » > le même disque et le même dossier.
    Rien n'est écrasé : si Ubuntu a déjà ses propres données, elles restent dans l'ancien dossier.

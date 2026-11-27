@@ -9,6 +9,7 @@
  */
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 const { DATA, isWin } = require("./config");
 
 const LOCATION = path.join(DATA, "location.json");
@@ -79,8 +80,8 @@ const getProblem = () => problem;
 /** Disques et dossiers proposés pour partager les données entre Windows et Ubuntu. */
 function candidates() {
   const out = [];
-  const name = "Triviae - Données";
-  const OLD = ["MaPetiteBoîte - Données", "MesApplications-donnees", "Mes applications - Données"]; // anciens noms : on garde celui qui existe déjà sur le disque
+  const name = "data";
+  const OLD = ["Triviae - Données", "MaPetiteBoîte - Données", "MesApplications-donnees", "Mes applications - Données"]; // anciens noms : on garde celui qui existe déjà sur le disque
   const pick = (base) => OLD.find((o) => isDir(path.join(base, o))) || name;
   if (isWin) {
     for (let c = 65; c <= 90; c++) {
@@ -178,6 +179,18 @@ function info() {
 }
 
 /** Copie vers `to` ce qui existe dans `from` et manque dans `to`. Ne remplace jamais rien. */
+/** Copie récursive en JavaScript pur (fs.cpSync peut faire planter Node sous Windows) ; ne remplace jamais un fichier existant. */
+function copyTree(src, dst, depth) {
+  if (depth > 60) return;
+  const st = fs.statSync(src);
+  if (st.isDirectory()) {
+    fs.mkdirSync(dst, { recursive: true });
+    for (const n of fs.readdirSync(src)) copyTree(path.join(src, n), path.join(dst, n), depth + 1);
+  } else if (st.isFile() && !fs.existsSync(dst)) {
+    fs.copyFileSync(src, dst);
+  }
+}
+
 function migrate(from, to) {
   const copied = [];
   const kept = [];
@@ -188,7 +201,7 @@ function migrate(from, to) {
     const dstHasData = isDir(dst) && fs.readdirSync(dst).length > 0;
     if (dstHasData) kept.push(e.name);
     else {
-      fs.cpSync(path.join(from, e.name), dst, { recursive: true, force: false, errorOnExist: false });
+      copyTree(path.join(from, e.name), dst, 0);
       copied.push(e.name);
     }
   }
@@ -211,7 +224,7 @@ function set(dirInput) {
   if (isWin ? dir.startsWith("/") && !dir.startsWith("//") : /^[A-Za-z]:[\\/]|^\\\\/.test(dir)) {
     return { ok: false, message: `Ce chemin ne correspond pas à ce système : ${isWin ? "ici, un disque comme D:\\…" : "ici, un chemin comme /media/…"}. Chaque système a son propre chemin vers le même disque.` };
   }
-  if (!path.isAbsolute(dir)) return { ok: false, message: `« ${dir} » n'est pas un chemin complet (exemple : ${isWin ? "D:\\Triviae - Données" : "/media/vous/Donnees/Triviae - Données"}).` };
+  if (!path.isAbsolute(dir)) return { ok: false, message: `« ${dir} » n'est pas un chemin complet (exemple : ${isWin ? "D:\\data" : "/media/vous/Donnees/data"}).` };
   const parent = path.dirname(dir);
   if (!isDir(parent)) {
     return { ok: false, message: `Le dossier parent « ${parent} » n'existe pas. Le disque est-il branché et monté ? (Le dossier lui-même sera créé, pas ses parents.)` };
@@ -240,42 +253,136 @@ function set(dirInput) {
   return { ok: true, dir, ...report };
 }
 
+/** Fenêtre moderne (style Explorateur : barre latérale, barre d'adresse) : IFileOpenDialog en mode « choisir un dossier ». Windows seulement. */
+const MODERN_CS = `
+using System;
+using System.Runtime.InteropServices;
+public static class FP {
+  [ComImport, Guid("DC1C5A9C-E88A-4DDE-A5A1-60F82A20AEF7")] class FileOpenDialogRCW {}
+  [ComImport, Guid("43826d1e-e718-42ee-bc55-a1e261c37bfe"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface IShellItem {
+    void BindToHandler(IntPtr pbc, ref Guid bhid, ref Guid riid, out IntPtr ppv);
+    void GetParent(out IShellItem ppsi);
+    void GetDisplayName(uint sigdnName, [MarshalAs(UnmanagedType.LPWStr)] out string name);
+    void GetAttributes(uint mask, out uint attrs);
+    void Compare(IShellItem psi, uint hint, out int order);
+  }
+  [ComImport, Guid("42f85136-db7e-439c-85f1-e4075d135fc8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface IFileDialog {
+    [PreserveSig] int Show(IntPtr parent);
+    void SetFileTypes(uint c, IntPtr f);
+    void SetFileTypeIndex(uint i);
+    void GetFileTypeIndex(out uint i);
+    void Advise(IntPtr p, out uint c);
+    void Unadvise(uint c);
+    void SetOptions(uint o);
+    void GetOptions(out uint o);
+    void SetDefaultFolder(IShellItem s);
+    void SetFolder(IShellItem s);
+    void GetFolder(out IShellItem s);
+    void GetCurrentSelection(out IShellItem s);
+    void SetFileName([MarshalAs(UnmanagedType.LPWStr)] string n);
+    void GetFileName([MarshalAs(UnmanagedType.LPWStr)] out string n);
+    void SetTitle([MarshalAs(UnmanagedType.LPWStr)] string t);
+    void SetOkButtonLabel([MarshalAs(UnmanagedType.LPWStr)] string t);
+    void SetFileNameLabel([MarshalAs(UnmanagedType.LPWStr)] string t);
+    void GetResult(out IShellItem s);
+  }
+  [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+  public static string Pick(string title) {
+    IFileDialog d = (IFileDialog)new FileOpenDialogRCW();
+    uint o; d.GetOptions(out o);
+    d.SetOptions(o | 0x20u | 0x40u | 0x800u); // dossiers seulement, système de fichiers, chemin existant
+    d.SetTitle(title);
+    d.SetOkButtonLabel("Sélectionner");
+    int hr = d.Show(GetForegroundWindow());
+    if (hr == unchecked((int)0x800704C7)) return null; // annulé
+    if (hr != 0) Marshal.ThrowExceptionForHR(hr);
+    IShellItem it; d.GetResult(out it);
+    string p; it.GetDisplayName(0x80058000u, out p); // chemin du système de fichiers
+    return p;
+  }
+}
+`;
+const MODERN_PS = `$ErrorActionPreference='Stop'
+[Console]::OutputEncoding=[Text.Encoding]::UTF8
+Add-Type -TypeDefinition @'
+${MODERN_CS}
+'@
+[Console]::Out.Write("SHOWN\n"); [Console]::Out.Flush()
+$r=[FP]::Pick('Choisissez le dossier des données')
+if($r -eq $null){[Console]::Out.Write("CANCEL")}else{[Console]::Out.Write("PATH:"+$r)}`;
+const CLASSIC_PS = "Add-Type -AssemblyName System.Windows.Forms; [Console]::OutputEncoding=[Text.Encoding]::UTF8; $t=New-Object System.Windows.Forms.Form -Property @{TopMost=$true;ShowInTaskbar=$false;Opacity=0;StartPosition='CenterScreen'}; $t.Show(); $t.Activate(); $f=New-Object System.Windows.Forms.FolderBrowserDialog; $f.Description='Choisissez le dossier des données'; $f.ShowNewFolderButton=$true; if($f.ShowDialog($t) -eq 'OK'){[Console]::Out.Write('PATH:'+$f.SelectedPath)} else {[Console]::Out.Write('CANCEL')}";
+const psArgs = (script) => ["-NoProfile", "-NonInteractive", "-STA", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")];
+
 /**
- * Ouvre le sélecteur de dossier natif du système (Windows : fenêtre « Parcourir » ; Linux : zenity / kdialog).
+ * Ouvre le sélecteur de dossier natif du système.
+ * Windows : fenêtre moderne (style Explorateur) d'abord ; si elle échoue ou ne s'affiche pas en 20 s, l'ancienne fenêtre « Rechercher un dossier ».
+ * Linux : zenity / kdialog.
  * @returns {{ promise: Promise<{path?:string,cancelled?:boolean,unavailable?:boolean}>, cancel: Function }}
  */
 function pick() {
   const { spawn } = require("child_process");
   let child = null;
-  const promise = new Promise((resolve) => {
-    let cmd, args;
-    if (process.platform === "win32") {
-      cmd = "powershell.exe";
-      const ps = "Add-Type -AssemblyName System.Windows.Forms; [Console]::OutputEncoding=[Text.Encoding]::UTF8; $t=New-Object System.Windows.Forms.Form -Property @{TopMost=$true}; $f=New-Object System.Windows.Forms.FolderBrowserDialog; $f.Description='Choisissez le dossier des données'; $f.ShowNewFolderButton=$true; if($f.ShowDialog($t) -eq 'OK'){[Console]::Out.Write($f.SelectedPath)}";
-      args = ["-NoProfile", "-STA", "-WindowStyle", "Hidden", "-Command", ps];
-    } else {
-      const has = (c) => (process.env.PATH || "").split(":").some((d) => d && fs.existsSync(path.join(d, c)));
-      if (has("zenity")) { cmd = "zenity"; args = ["--file-selection", "--directory", "--title=Choisissez le dossier des données"]; }
-      else if (has("kdialog")) { cmd = "kdialog"; args = ["--getexistingdirectory", os.homedir(), "--title", "Choisissez le dossier des données"]; }
-      else return resolve({ unavailable: true });
-      if (!process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) return resolve({ unavailable: true });
-    }
-    let out = "";
-    try {
-      child = spawn(cmd, args, { stdio: ["ignore", "pipe", "ignore"], windowsHide: true });
-    } catch {
-      return resolve({ unavailable: true });
-    }
-    child.stdout.on("data", (d) => (out += d));
-    child.on("error", () => resolve({ unavailable: true }));
-    child.on("close", (code) => {
-      const v = out.replace(/[\r\n]+$/, "").trim();
-      if (v) return resolve({ path: v });
-      // 1 = annulé (zenity / kdialog) ; sous Windows, une fenêtre fermée donne une sortie vide et le code 0
-      resolve(code === 0 || code === 1 ? { cancelled: true } : { unavailable: true });
+  let cancelled = false;
+
+  /** Lance un programme ; résout { out, code, error, noShow }. « SHOWN » dans la sortie = la fenêtre est apparue. */
+  const run = (cmd, args, showTimeoutMs) =>
+    new Promise((resolve) => {
+      let out = "";
+      let timer = null;
+      let noShow = false;
+      try {
+        child = spawn(cmd, args, { stdio: ["ignore", "pipe", "ignore"], windowsHide: true });
+      } catch {
+        return resolve({ out: "", code: -1, error: true });
+      }
+      const c = child;
+      if (showTimeoutMs) {
+        timer = setTimeout(() => {
+          if (!out.includes("SHOWN")) {
+            noShow = true;
+            try { c.kill(); } catch {}
+          }
+        }, showTimeoutMs);
+      }
+      c.stdout.on("data", (d) => (out += d));
+      c.on("error", () => (clearTimeout(timer), resolve({ out, code: -1, error: true })));
+      c.on("close", (code) => (clearTimeout(timer), resolve({ out, code, noShow })));
     });
-  });
-  return { promise, cancel: () => { try { child && child.kill(); } catch {} } };
+
+  const promise = (async () => {
+    if (process.platform === "win32") {
+      const parse = (r) => {
+        const m = /PATH:([^\r\n]+)/.exec(r.out);
+        if (m) return { path: m[1].trim() };
+        if (/CANCEL/.test(r.out)) return { cancelled: true };
+        return null;
+      };
+      const modern = await run("powershell.exe", psArgs(MODERN_PS), 20000);
+      if (cancelled) return { cancelled: true };
+      const m = parse(modern);
+      if (m) return m;
+      // fenêtre moderne indisponible (blocage de PowerShell, Windows ancien…) : on retombe sur l'ancienne
+      const classic = await run("powershell.exe", psArgs(CLASSIC_PS), 0);
+      if (cancelled) return { cancelled: true };
+      const c = parse(classic);
+      if (c) return c;
+      return classic.error || classic.code ? { unavailable: true } : { cancelled: true };
+    }
+    let cmd, args;
+    const has = (c) => (process.env.PATH || "").split(":").some((d) => d && fs.existsSync(path.join(d, c)));
+    if (has("zenity")) { cmd = "zenity"; args = ["--file-selection", "--directory", "--title=Choisissez le dossier des données"]; }
+    else if (has("kdialog")) { cmd = "kdialog"; args = ["--getexistingdirectory", os.homedir(), "--title", "Choisissez le dossier des données"]; }
+    else return { unavailable: true };
+    if (!process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) return { unavailable: true };
+    const r = await run(cmd, args, 0);
+    const v = r.out.replace(/[\r\n]+$/, "").trim();
+    if (v) return { path: v };
+    // 1 = annulé (zenity / kdialog)
+    return r.code === 0 || r.code === 1 ? { cancelled: true } : { unavailable: true };
+  })();
+  return { promise, cancel: () => { cancelled = true; try { child && child.kill(); } catch {} } };
 }
 
 module.exports = { pick, check, getProblem, current, forApp, info, set, browse, makeFolder };

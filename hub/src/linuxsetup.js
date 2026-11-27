@@ -65,13 +65,13 @@ function migrateLegacy() {
   } catch {}
 }
 
-/** Entrée dans le menu des applications (et sur le Bureau), créée une seule fois. */
-function ensureShortcut() {
+/** Entrée dans le menu des applications (et sur le Bureau) : créée une seule fois au démarrage, ou à la demande (force) depuis les Réglages. */
+function ensureShortcut(force) {
   if (!state.read().legacyTriviae) {
     migrateLegacy();
     state.update({ legacyTriviae: true });
   }
-  if (state.read().shortcut) return;
+  if (state.read().shortcut && !force) return true;
   try {
     write(APP_ENTRY, entry());
     const desk = desktopDir();
@@ -82,7 +82,10 @@ function ensureShortcut() {
       spawnSync("gio", ["set", file, "metadata::trusted", "true"], { timeout: 3000 });
     }
     state.update({ shortcut: true });
-  } catch {}
+    return !!desktopDir();
+  } catch {
+    return false;
+  }
 }
 
 const autostartOn = () => fs.existsSync(AUTOSTART);

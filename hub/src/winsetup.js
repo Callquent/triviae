@@ -83,14 +83,14 @@ function migrateLegacy() {
   } catch {}
 }
 
-/** Raccourci « Triviae » sur le Bureau, créé une seule fois. */
-function ensureShortcut() {
-  if (!isWin) return;
+/** Raccourci « Triviae » sur le Bureau : créé une seule fois au démarrage, ou à la demande (force) depuis les Réglages. */
+function ensureShortcut(force) {
+  if (!isWin) return false;
   if (!state.read().legacyTriviae) {
     migrateLegacy();
     state.update({ legacyTriviae: true });
   }
-  if (state.read().shortcut) return;
+  if (state.read().shortcut && !force) return true;
   const ok = powershell(`$d=[Environment]::GetFolderPath('Desktop')
 $s=(New-Object -ComObject WScript.Shell).CreateShortcut("$d\\Triviae.lnk")
 $s.TargetPath='${quote(target())}'
@@ -99,6 +99,7 @@ $s.IconLocation='${quote(path.join(ROOT, "hub", "assets", "icon.ico"))}'
 $s.Description='Triviae'
 $s.Save()`).status === 0;
   if (ok) state.update({ shortcut: true });
+  return ok;
 }
 
 const autostartOn = () => isWin && fs.existsSync(startupLink());

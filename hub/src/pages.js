@@ -224,8 +224,8 @@ ${d.problem ? `<p class="warn">${esc(d.problem)} <button class="btn small" data-
 <ol class="steps3">
 <li><div class="sh"><span class="n">1</span><strong>Choisissez un disque commun</strong></div>${drives}</li>
 <li><div class="sh"><span class="n">2</span><strong>Ou indiquez un autre dossier</strong></div>
-<form id="dataform"><span class="filefield"><input name="dir" placeholder="${win ? "D:\\\\Triviae - Données" : "/media/vous/Donnees/Triviae - Données"}" aria-label="Chemin du dossier"><button type="button" id="pickbtn">Parcourir…</button></span>
-<div class="row" style="margin-top:10px"><button class="btn" id="usebtn">Utiliser ce dossier</button><button type="button" class="btn quiet small" id="browsebtn">Le sélecteur ne s'ouvre pas ? Parcourir ici</button></div></form></li>
+<form id="dataform"><span class="filefield"><input name="dir" placeholder="${win ? "D:\\\\data" : "/media/vous/Donnees/data"}" aria-label="Chemin du dossier"><button type="button" id="pickbtn">Parcourir…</button></span>
+<div class="row" style="margin-top:10px"><button class="btn" id="usebtn">Utiliser ce dossier</button><button type="button" class="btn quiet small" id="browsebtn" hidden style="display:none">Le sélecteur ne s'ouvre pas ? Parcourir ici</button></div></form></li>
 </ol>
 <div id="browser" style="display:none;border:1px solid var(--line);border-radius:12px;padding:10px;gap:8px">
 <div id="bpath" style="font-size:.9rem;word-break:break-all"></div>
@@ -354,7 +354,7 @@ function shell(o, active, inner, extraScript = "") {
 const SCRIPT = `<script>
 for(const b of document.querySelectorAll('[data-post]'))b.addEventListener('click',async()=>{
 if(b.dataset.confirm&&!confirm(b.dataset.confirm))return;b.disabled=true;if(b.dataset.busy)b.textContent=b.dataset.busy;
-try{await fetch(b.dataset.post,{method:'POST'})}catch(e){}
+try{const r=await fetch(b.dataset.post,{method:'POST'});if(b.dataset.done){const j=await r.json().catch(()=>({}));b.textContent=j.ok?b.dataset.done:(b.dataset.fail||'Échec');return setTimeout(()=>location.reload(),2500)}}catch(e){}
 setTimeout(()=>location.reload(),b.dataset.post==='/hub/quit'?500:1200)});
 for(const b of document.querySelectorAll('[data-post-json]'))b.addEventListener('click',async()=>{b.disabled=true;
 try{await fetch(b.dataset.postJson,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({on:b.dataset.on==='1'})})}catch(e){}
@@ -367,7 +367,7 @@ const j=await r.json();if(j.ok){m.textContent='PC jumelé : '+j.peer.name+'. Pre
 fetch('/hub/sync/now/'+j.peer.id,{method:'POST'}).finally(()=>location.reload())}else{m.textContent=j.message||'Échec du jumelage.';m.style.display='block';btn.disabled=false}}
 catch(err){m.textContent='Échec du jumelage.';m.style.display='block';btn.disabled=false}});
 async function setDir(dir){const m=document.getElementById('datamsg');m.style.display='block';m.textContent='Copie et redémarrage des applications…';
-try{const r=await fetch('/hub/data/set',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({dir:dir})});const j=await r.json();
+try{const r=await fetch('/hub/data/set',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({dir:dir})});const j=await r.json().catch(()=>({message:'Erreur '+r.status+' du serveur (voir le fichier hub.log).'}));
 if(j.ok){m.textContent='Dossier changé.'+(j.copied&&j.copied.length?' Données copiées : '+j.copied.join(', ')+'.':'')+(j.kept&&j.kept.length?' Ce dossier contenait déjà des données ('+j.kept.join(', ')+') : elles sont utilisées telles quelles, celles de ce système ne sont pas copiées par-dessus.':'');setTimeout(()=>location.reload(),j.kept&&j.kept.length?5000:1500)}
 else m.textContent=j.message||'Échec.'}catch(e){m.textContent='Échec.'}}
 for(const b of document.querySelectorAll('[data-dir]:not(.drive)'))b.addEventListener('click',()=>setDir(b.dataset.dir));
@@ -707,6 +707,12 @@ ${o.tls && o.tls.ok ? `<div class="setrow"><div class="st"><strong>Connexion sé
       o.canAutostart
         ? `<div class="setrow"><div class="st"><strong>Démarrer avec l'ordinateur</strong><span class="muted">Triviae se lance à l'ouverture de la session, sans rien faire.</span></div>
 <button class="switch ${o.autostart ? "on" : ""}" role="switch" aria-checked="${o.autostart ? "true" : "false"}" aria-label="Démarrer avec l'ordinateur" data-post="/hub/autostart"><span class="knob"></span></button></div>`
+        : ""
+    }
+${
+      o.canShortcut
+        ? `<div class="setrow"><div class="st"><strong>Raccourci sur le Bureau</strong><span class="muted">Crée (ou recrée) l'icône « Triviae » sur le Bureau. Elle est aussi ajoutée automatiquement au premier lancement.</span></div>
+<button class="btn small" data-post="/hub/shortcut" data-busy="Création…" data-done="Raccourci créé ✓" data-fail="Impossible de le créer">Mettre sur le Bureau</button></div>`
         : ""
     }
 <p class="note"><span class="ni">${SIC.shield}</span><span><strong>Pas de mot de passe.</strong> Toute personne connectée à votre Wi-Fi peut ouvrir vos applications. N'exposez pas ce PC sur Internet.</span></p></section>`,

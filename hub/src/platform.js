@@ -2,7 +2,7 @@
 const noop = {
   supported: false,
   ensureFirewall: () => Promise.resolve(true),
-  ensureShortcut() {},
+  ensureShortcut: () => false,
   autostartOn: () => false,
   setAutostart: () => false,
 };

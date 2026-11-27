@@ -14,7 +14,7 @@ const lsstore = require("./lsstore");
 const tls = require("./tls");
 const links = require("./links");
 const SW = require("./sw");
-const { ASSETS, APPS_DIR } = require("./config");
+const { ASSETS, APPS_DIR, LOGS } = require("./config");
 const { lanAddresses } = require("./netinfo");
 
 const isLoopback = (req) => ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress || "");
@@ -231,6 +231,7 @@ async function homePage(req, res, url, view = "home") {
       setup: st,
       appsDir: APPS_DIR,
       canAutostart: win.supported,
+      canShortcut: typeof win.ensureShortcut === "function",
       autostart: win.autostartOn(),
       sync: sync.status(),
       storage: Object.fromEntries(apps.list().map((r) => [r.def.id, storageOn(r)])),
@@ -326,7 +327,13 @@ function create({ onQuit, getPort }) {
         if (req.method === "POST" && p === "/hub/data/pick") {
           const pk = datadir.pick();
           res.on("close", () => pk.cancel());
-          return json(res, await pk.promise);
+          let out;
+          try {
+            out = await pk.promise;
+          } catch {
+            out = { unavailable: true };
+          }
+          return json(res, out);
         }
         if (p === "/hub/data/browse") return json(res, datadir.browse(new URL(req.url, "http://x").searchParams.get("dir")));
         if (req.method === "POST" && p === "/hub/data/mkdir") {
@@ -385,8 +392,18 @@ function create({ onQuit, getPort }) {
             input = JSON.parse((await readBody(req, 4096)).toString("utf8"));
           } catch {}
           await apps.stopAll(); // le temps de copier : aucune application n'écrit dans les dossiers
-          const out = datadir.set(input.dir ?? null);
-          await apps.restartAll();
+          let out;
+          try {
+            out = datadir.set(input.dir ?? null);
+          } catch (e) {
+            console.error(e);
+            out = { ok: false, message: `Le changement de dossier a échoué (${e.code || e.message}). Rien n'a été changé.` };
+          }
+          try {
+            await apps.restartAll();
+          } catch (e) {
+            console.error(e);
+          }
           return json(res, out, out.ok ? 200 : 400);
         }
         if (req.method === "POST" && p === "/hub/data/retry") {
@@ -423,6 +440,7 @@ function create({ onQuit, getPort }) {
           if ((m = /^\/hub\/restart\/([a-z0-9-]+)$/.exec(p))) return json(res, { ok: await apps.restart(m[1]) });
           if (p === "/hub/rescan") return json(res, { added: apps.scan() });
           if (p === "/hub/firewall") return json(res, { ok: await win.ensureFirewall(getPort(), true) });
+          if (p === "/hub/shortcut") return json(res, { ok: !!win.ensureShortcut(true) });
           if (p === "/hub/autostart") return json(res, { on: win.setAutostart(!win.autostartOn()) });
           if (p === "/hub/quit") {
             json(res, { ok: true });
@@ -433,7 +451,15 @@ function create({ onQuit, getPort }) {
       html(res, pages.notFound(), 404);
     } catch (err) {
       console.error(err);
-      if (!res.headersSent) send(res, 500, "text/plain", "Erreur interne");
+      try {
+        fs.mkdirSync(LOGS, { recursive: true });
+        fs.appendFileSync(path.join(LOGS, "hub.log"), `\n--- ${new Date().toLocaleString("fr-FR")} ${req.method} ${req.url}\n${(err && err.stack) || err}\n`);
+      } catch {}
+      if (!res.headersSent) {
+        // les pages du hub lisent du JSON : on renvoie la vraie raison plutôt qu'un texte brut
+        if (String(req.url || "").startsWith("/hub/")) json(res, { ok: false, message: `Erreur interne : ${(err && (err.code ? err.code + " " : "") + err.message) || err}. Détails dans le fichier hub.log du dossier des journaux.` }, 500);
+        else send(res, 500, "text/plain", "Erreur interne");
+      }
     }
   });
 

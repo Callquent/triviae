@@ -10,7 +10,8 @@ const gateway = require("./gateway");
 const sync = require("./sync");
 const datadir = require("./datadir");
 const win = require("./platform");
-const { DATA, HUB_PORT, ROOT, isWin } = require("./config");
+const { DATA, HUB_PORT, ROOT, isWin, LOGS } = require("./config");
+const path = require("path");
 const { lanAddresses } = require("./netinfo");
 
 const silent = process.argv.includes("--silent");
@@ -170,8 +171,16 @@ async function main() {
 }
 
 for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"]) process.on(sig, shutdown);
-process.on("uncaughtException", (e) => console.error("Erreur :", e));
-process.on("unhandledRejection", (e) => console.error("Erreur :", e));
+// Les erreurs inattendues ne doivent pas arrêter le hub ; elles sont notées dans hub.log (dossier des journaux).
+function trace(texte) {
+  try {
+    fs.mkdirSync(LOGS, { recursive: true });
+    fs.appendFileSync(path.join(LOGS, "hub.log"), `\n--- ${new Date().toLocaleString("fr-FR")} ${texte}\n`);
+  } catch {}
+}
+process.on("uncaughtException", (e) => (console.error("Erreur :", e), trace(`Erreur non interceptée : ${(e && e.stack) || e}`)));
+process.on("unhandledRejection", (e) => (console.error("Erreur :", e), trace(`Promesse rejetée : ${(e && e.stack) || e}`)));
+process.on("exit", (code) => trace(`Arrêt du hub (code ${code})`));
 
 main().catch((err) => {
   console.error("\nImpossible de démarrer :", err.message);
