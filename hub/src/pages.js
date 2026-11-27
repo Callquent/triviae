@@ -167,8 +167,20 @@ a:focus-visible,button:focus-visible,summary:focus-visible,.drop:focus-visible,i
 .lk-sep{stroke:var(--line);stroke-width:1}.lk-sl{fill:var(--muted);font:700 11px system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;paint-order:stroke;stroke:var(--surface);stroke-width:8px}
 .lk-cap{margin:0;text-align:center;font-size:.85rem}.lk-lone{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 8px 0}
 @media (prefers-reduced-motion:reduce){.lk-e{animation:none}}
-.lk-sec{display:grid;gap:6px}.lk-t{font-size:.76rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}.chips{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
-.chip{display:grid;gap:1px;background:var(--g1);border-radius:10px;padding:7px 11px}.chip a{color:inherit;text-decoration:none}.chip a:hover{text-decoration:underline}.chip small{color:var(--muted);font-size:.8rem}.lk-note{margin:0;font-size:.9rem}
+.lk-a{cursor:pointer}.lk-a:focus-visible .lk-ring{stroke-width:4}
+.lk-apps{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,22rem),1fr));gap:14px;margin-top:12px}
+.lk-app{display:grid;gap:12px;align-content:start;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--surface);scroll-margin-top:96px;transition:box-shadow .2s,border-color .2s}
+.lk-app:target{border-color:var(--g7);box-shadow:0 0 0 3px color-mix(in srgb,var(--g7) 22%,transparent)}
+.lk-ah{display:flex;align-items:center;gap:12px}.lk-an{display:grid;gap:4px;justify-items:start;flex:1;min-width:0}.lk-an strong{font-size:1.02rem;overflow:hidden;text-overflow:ellipsis;max-width:100%;white-space:nowrap}
+.lk-open{font-size:.84rem;font-weight:600;color:var(--g7);text-decoration:none;border:1px solid var(--line);border-radius:99px;padding:4px 12px;flex:none}.lk-open:hover{background:var(--g1)}
+.lk-ml{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--g1);color:var(--g7);font-size:.72rem;font-weight:700;overflow:hidden;flex:none}.lk-ml img{width:100%;height:100%;object-fit:cover;display:block}.lk-ml.big{width:44px;height:44px;font-size:1.15rem}
+.lk-g{display:grid;gap:7px;padding-top:12px;border-top:1px solid var(--line)}.lk-gh{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+.lk-dir{font-size:.76rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}.lk-g.in .lk-dir{color:#1f7a4d}.lk-g.out .lk-dir{color:var(--g7)}.lk-gl{font-size:.88rem;color:var(--muted)}
+.lk-pills{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.lk-pill{display:inline-flex;align-items:center;gap:8px;background:var(--g1);color:inherit;text-decoration:none;border:1px solid transparent;border-radius:99px;padding:3px 12px 3px 4px;font-size:.9rem;font-weight:600}a.lk-pill:hover{border-color:var(--g7)}
+.lk-pill em{font-style:normal;font-weight:600;font-size:.72rem;color:#b3392f;background:#fdecea;border-radius:99px;padding:1px 8px}.lk-pill.miss{background:var(--surface);border:1px dashed #d5473d}
+.lk-note{margin:0;font-size:.9rem}
+.lk-lonel{margin:14px 0 0;font-size:.9rem}.lk-lonel a{color:inherit}
 .tile-add:hover{border-color:var(--g7);color:var(--g7)}.tile-add .plus{width:44px;height:44px;border-radius:50%;background:var(--g1);color:var(--g7);display:grid;place-items:center;font-size:1.7rem;line-height:1}
 .more{position:relative;margin-left:auto;flex:none}.more>summary{list-style:none;cursor:pointer;width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:var(--muted);font-size:1.2rem;line-height:1}
 .more>summary::-webkit-details-marker{display:none}.more>summary:hover,.more[open]>summary{background:var(--g1);color:var(--ink)}
@@ -412,31 +424,108 @@ function linksPage(o) {
   const nm = (id) => (byId[id] ? byId[id].name : id);
   const cut = (s, n) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 
-  // Schéma en étoile : l'application la plus liée au centre, les autres autour, pointillés animés du fournisseur vers le receveur.
+  // Schéma : chaque groupe d'applications liées entre elles forme son propre îlot (étoile, ou paire), pour que des applications
+  // non liées entre elles ne se chevauchent jamais. Les satellites sont ordonnés pour que les traits se croisent le moins possible.
   const deg = {};
   for (const e of L.edges) for (const id of [e.from, e.to]) deg[id] = (deg[id] || 0) + 1;
   const linked = L.nodes.filter((nd) => deg[nd.id]);
   const lone = L.nodes.filter((nd) => !deg[nd.id] && nd.status !== "missing" && nd.status !== "external");
-  const centerNode = [...linked].sort((a, b) => deg[b.id] - deg[a.id] || a.name.localeCompare(b.name))[0];
-  const around = linked.filter((nd) => nd !== centerNode);
   const W = 640, cx = W / 2;
-  const R = around.length > 8 ? 150 : 128;
-  const starH = centerNode ? 2 * (R + 62) : 0;
-  const PER = 6, ROW = 96;
-  const loneRows = Math.ceil(lone.length / PER);
-  const H = starH + (lone.length ? (centerNode ? 36 : 14) + loneRows * ROW : 0);
-  const cy = starH / 2;
+  const parent = {};
+  for (const nd of linked) parent[nd.id] = nd.id;
+  const find = (x) => (parent[x] === x ? x : (parent[x] = find(parent[x])));
+  for (const e of L.edges) if (parent[e.from] !== undefined && parent[e.to] !== undefined) parent[find(e.from)] = find(e.to);
+  const byRoot = {};
+  for (const nd of linked) (byRoot[find(nd.id)] = byRoot[find(nd.id)] || []).push(nd);
+  const comps = Object.values(byRoot).sort((a, b) => b.length - a.length || a[0].name.localeCompare(b[0].name));
   const pos = {};
-  if (centerNode) {
-    pos[centerNode.id] = { x: cx, y: cy, r: 44 };
+  const bands = []; // { top, bottom } de chaque îlot
+  let y0 = 0;
+  const GAP = 30;
+
+  const ringPos = (center, around, cxc, cyc, R) => {
+    const p = { [center.id]: { x: cxc, y: cyc, r: 44 } };
     around.forEach((nd, i) => {
       const a = -Math.PI / 2 + (2 * Math.PI * i) / around.length;
-      pos[nd.id] = { x: cx + Math.cos(a) * R * 1.5, y: cy + Math.sin(a) * R, r: 30 };
+      p[nd.id] = { x: cxc + Math.cos(a) * R * 1.5, y: cyc + Math.sin(a) * R, r: 30 };
     });
-  }
+    return p;
+  };
+  const segX = (a, b, c, d) => {
+    const o = (p, q, r) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+    return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0;
+  };
+  const near = (p, a, b) => {
+    const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2));
+    return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+  };
+  const cost = (p, edges) => {
+    let c = 0;
+    for (let i = 0; i < edges.length; i++) {
+      const a = p[edges[i].from], b = p[edges[i].to];
+      c += Math.hypot(a.x - b.x, a.y - b.y) * 0.001;
+      for (const id of Object.keys(p)) if (id !== edges[i].from && id !== edges[i].to && near(p[id], a, b) < p[id].r + 8) c += 3;
+      for (let k = i + 1; k < edges.length; k++) {
+        const e = edges[k];
+        if (e.from === edges[i].from || e.from === edges[i].to || e.to === edges[i].from || e.to === edges[i].to) continue;
+        if (segX(a, b, p[e.from], p[e.to])) c += 5;
+      }
+    }
+    return c;
+  };
+  const bestOrder = (center, around, edges, R) => {
+    if (around.length < 3 || around.length > 8) return around;
+    let best = around, bestC = Infinity;
+    const used = new Array(around.length).fill(false), cur = [];
+    const rec = () => {
+      if (cur.length === around.length) {
+        const c = cost(ringPos(center, cur, 0, 0, R), edges);
+        if (c < bestC - 1e-9) ((bestC = c), (best = cur.slice()));
+        return;
+      }
+      for (let k = 0; k < around.length; k++) {
+        if (used[k]) continue;
+        used[k] = true;
+        cur.push(around[k]);
+        rec();
+        cur.pop();
+        used[k] = false;
+      }
+    };
+    rec();
+    return best;
+  };
+
+  comps.forEach((comp, ci) => {
+    const ids = new Set(comp.map((nd) => nd.id));
+    const edges = L.edges.filter((e) => ids.has(e.from) && ids.has(e.to));
+    const d = {};
+    for (const e of edges) for (const id of [e.from, e.to]) d[id] = (d[id] || 0) + 1;
+    const top = y0 + (ci ? GAP : 0);
+    if (comp.length === 2) {
+      const [a, b] = [...comp].sort((p, q) => p.name.localeCompare(q.name));
+      pos[a.id] = { x: cx - 95, y: top + 40, r: 30 };
+      pos[b.id] = { x: cx + 95, y: top + 40, r: 30 };
+      bands.push({ top, bottom: top + 100 });
+      y0 = top + 100;
+      return;
+    }
+    const center = [...comp].sort((p, q) => d[q.id] - d[p.id] || p.name.localeCompare(q.name))[0];
+    const R = comp.length > 9 ? 150 : ci ? 100 : 128;
+    const around = bestOrder(center, comp.filter((nd) => nd !== center), edges, R);
+    const h = 2 * (R + 62);
+    Object.assign(pos, ringPos(center, around, cx, top + h / 2, R));
+    bands.push({ top, bottom: top + h });
+    y0 = top + h;
+  });
+  const bandsH = y0;
+  const PER = 6, ROW = 96;
+  const loneRows = Math.ceil(lone.length / PER);
+  const H = bandsH + (lone.length ? (comps.length ? 36 : 14) + loneRows * ROW : 0);
   lone.forEach((nd, i) => {
     const row = Math.floor(i / PER), inRow = Math.min(PER, lone.length - row * PER), k = i % PER;
-    pos[nd.id] = { x: cx + (k - (inRow - 1) / 2) * 104, y: starH + (centerNode ? 36 : 14) + row * ROW + 36, r: 30 };
+    pos[nd.id] = { x: cx + (k - (inRow - 1) / 2) * 104, y: bandsH + (comps.length ? 36 : 14) + row * ROW + 36, r: 30 };
   });
   const logo = (nd, p, i) => {
     const url = nd.icon && nd.basePath ? nd.basePath + nd.icon : "";
@@ -446,7 +535,9 @@ function linksPage(o) {
       ? `<clipPath id="lk-c${i}"><circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${ir}"/></clipPath><circle class="lk-in" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${ir}"/><image href="${esc(url)}" x="${(p.x - ir).toFixed(1)}" y="${(p.y - ir).toFixed(1)}" width="${ir * 2}" height="${ir * 2}" clip-path="url(#lk-c${i})" preserveAspectRatio="xMidYMid slice"/>`
       : `<circle class="lk-in" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${ir}"/><text class="lk-ini" x="${p.x.toFixed(1)}" y="${(p.y + (p.r > 40 ? 8 : 6)).toFixed(1)}" text-anchor="middle" style="font-size:${p.r > 40 ? 22 : 17}px">${esc((nd.name || "?").trim().slice(0, 1).toUpperCase())}</text>`;
     const halo = p.r > 40 ? `<circle class="lk-halo" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${p.r + 12}"/>` : "";
-    return `<g class="lk-n ${ring}${p.r > 40 ? " core" : ""}">${halo}<circle class="lk-ring" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${p.r}"/>${inner}<text class="lk-lb" x="${p.x.toFixed(1)}" y="${(p.y + p.r + (p.r > 40 ? 28 : 17)).toFixed(1)}" text-anchor="middle">${esc(cut(nd.name, 20))}</text></g>`;
+    const open = nd.status === "missing" || nd.status === "external" ? "" : `<a class="lk-a" href="#lk-${esc(nd.id)}" aria-label="Voir le détail de ${esc(nd.name)}">`;
+    const shut = open ? "</a>" : "";
+    return `${open}<g class="lk-n ${ring}${p.r > 40 ? " core" : ""}">${halo}<circle class="lk-ring" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${p.r}"/>${inner}<text class="lk-lb" x="${p.x.toFixed(1)}" y="${(p.y + p.r + (p.r > 40 ? 28 : 17)).toFixed(1)}" text-anchor="middle">${esc(cut(nd.name, 20))}</text></g</g>${shut}`;
   };
   const edgePath = (a, b, bend, off = 0) => {
     const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1;
@@ -454,51 +545,79 @@ function linksPage(o) {
     const ox = -uy * off, oy = ux * off;
     const x1 = a.x + ux * (a.r + 4) + ox, y1 = a.y + uy * (a.r + 4) + oy, x2 = b.x - ux * (b.r + 4) + ox, y2 = b.y - uy * (b.r + 4) + oy;
     if (!bend) return `M${x1.toFixed(1)} ${y1.toFixed(1)}L${x2.toFixed(1)} ${y2.toFixed(1)}`;
-    const mx = (x1 + x2) / 2 + (cx - (x1 + x2) / 2) * 0.55, my = (y1 + y2) / 2 + (cy - (y1 + y2) / 2) * 0.55;
-    return `M${x1.toFixed(1)} ${y1.toFixed(1)}Q${mx.toFixed(1)} ${my.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+    return `M${x1.toFixed(1)} ${y1.toFixed(1)}L${x2.toFixed(1)} ${y2.toFixed(1)}`;
   };
   const edgeSvg = (e) => {
     const a = pos[e.from], b = pos[e.to];
     if (!a || !b) return "";
     const off = (byId[e.from] && byId[e.from].status === "missing") || (byId[e.to] && byId[e.to].status === "missing") ? " off" : ""; // application liée mais non installée : trait plein, sans mouvement
-    const bend = a.r < 40 && b.r < 40; // entre deux satellites : courbe vers le centre pour ne pas croiser le schéma
+    const bend = false; // traits droits, y compris entre deux satellites
     return e.both
       ? `<path class="lk-e${off}" d="${edgePath(a, b, bend, 3.5)}"/><path class="lk-e${off}" d="${edgePath(b, a, bend, 3.5)}"/>`
       : `<path class="lk-e${off}" d="${edgePath(a, b, bend)}"/>`;
   };
-  const shown = [...(centerNode ? [centerNode] : []), ...around, ...lone];
-  const sep = centerNode && lone.length ? `<line class="lk-sep" x1="40" x2="${W - 40}" y1="${starH + 14}" y2="${starH + 14}"/><text class="lk-sl" x="${cx}" y="${starH + 32}" text-anchor="middle">Sans lien</text>` : "";
+  const shown = [...linked, ...lone];
+  const seps = [];
+  for (let k = 1; k < bands.length; k++) seps.push(`<line class="lk-sep" x1="120" x2="${W - 120}" y1="${(bands[k].top - GAP / 2).toFixed(1)}" y2="${(bands[k].top - GAP / 2).toFixed(1)}"/>`);
+  const sep = seps.join("") + (comps.length && lone.length ? `<line class="lk-sep" x1="40" x2="${W - 40}" y1="${bandsH + 14}" y2="${bandsH + 14}"/><text class="lk-sl" x="${cx}" y="${bandsH + 32}" text-anchor="middle">Sans lien</text>` : "");
   const diagram = shown.length
     ? `<svg class="lk-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Schéma des liens entre applications">${L.edges.map(edgeSvg).join("")}${sep}${shown.map((nd, i) => logo(nd, pos[nd.id], i)).join("")}</svg>`
     : "";
   const loneRow = "";
 
   const badge = (nd) => (nd.status === "running" ? '<span class="badge ok">en ligne</span>' : nd.status === "missing" ? '<span class="badge bad">non installée</span>' : nd.status === "external" ? '<span class="badge">externe</span>' : '<span class="badge">arrêtée</span>');
-  const chip = (id, labels) => {
-    const nd = byId[id];
-    const name = `<b>${esc(nm(id))}</b>`;
-    const link = nd && nd.basePath && nd.status === "running" ? `<a href="${esc(nd.basePath)}/">${name}</a>` : name;
-    return `<li class="chip">${link}${labels.length ? `<small>${esc(labels.join(" · "))}</small>` : ""}</li>`;
+  const miniLogo = (nd) => {
+    const url = nd && nd.icon && nd.basePath ? nd.basePath + nd.icon : "";
+    return url
+      ? `<span class="lk-ml"><img src="${esc(url)}" alt="" loading="lazy"></span>`
+      : `<span class="lk-ml ini">${esc(((nd && nd.name) || "?").trim().charAt(0).toUpperCase())}</span>`;
   };
-  const rows = L.nodes
-    .filter((nd) => nd.status !== "missing" && nd.status !== "external")
+  const pill = (id) => {
+    const nd = byId[id];
+    const name = esc(nm(id));
+    if (!nd || nd.status === "missing" || nd.status === "external") {
+      return `<li><span class="lk-pill miss" title="${nd && nd.status === "external" ? "Application externe" : "Non installée"}">${miniLogo(nd || { name: nm(id) })}${name}<em>${nd && nd.status === "external" ? "externe" : "non installée"}</em></span></li>`;
+    }
+    return `<li><a class="lk-pill" href="#lk-${esc(id)}">${miniLogo(nd)}${name}</a></li>`;
+  };
+  // regroupe les partenaires qui échangent la même chose : « Dates affichées dans l'agenda » : plantae, domus…
+  const groups = (list) => {
+    const g = new Map();
+    for (const x of list) {
+      const key = (x.labels || []).join(" · ");
+      if (!g.has(key)) g.set(key, []);
+      g.get(key).push(x.id);
+    }
+    return [...g.entries()];
+  };
+  const flow = (dir, list) =>
+    groups(list)
+      .map(
+        ([label, ids]) =>
+          `<div class="lk-g ${dir}"><div class="lk-gh"><span class="lk-dir">${dir === "in" ? "← Reçoit" : "→ Envoie"}</span>${label ? `<span class="lk-gl">${esc(label)}</span>` : ""}</div><ul class="lk-pills">${ids.map(pill).join("")}</ul></div>`,
+      )
+      .join("");
+  const cardNodes = L.nodes
+    .filter((nd) => nd.status !== "missing" && nd.status !== "external" && deg[nd.id])
+    .sort((a, b) => deg[b.id] - deg[a.id] || a.name.localeCompare(b.name));
+  const rows = cardNodes
     .map((nd) => {
-      const from = L.edges.filter((e) => (e.to === nd.id || (e.both && e.from === nd.id)) );
       const recv = L.edges.filter((e) => e.to === nd.id || (e.both && e.from === nd.id)).map((e) => ({ id: e.to === nd.id ? e.from : e.to, labels: e.labels }));
       const send = L.edges.filter((e) => e.from === nd.id || (e.both && e.to === nd.id)).map((e) => ({ id: e.from === nd.id ? e.to : e.from, labels: e.labels }));
-      void from;
-      const sec = (title, list) => (list.length ? `<div class="lk-sec"><span class="lk-t">${title}</span><ul class="chips">${list.map((x) => chip(x.id, x.labels)).join("")}</ul></div>` : "");
       const note =
         nd.state === "off"
           ? '<p class="muted lk-note">Application arrêtée : ses liens ne sont pas connus pour l\'instant.</p>'
           : nd.state === "last"
             ? '<p class="muted lk-note">Application arrêtée : derniers liens connus.</p>'
-            : !recv.length && !send.length
-              ? '<p class="muted lk-note">Aucun lien avec une autre application.</p>'
-              : "";
-      return `<article class="appcard"><div class="ah"><span class="ai" aria-hidden="true">${ICONS.apps}</span><div class="at"><strong>${esc(nd.name)}</strong></div>${badge(nd)}</div>${sec("Reçoit des données de", recv)}${sec("Envoie des données à", send)}${note}</article>`;
+            : "";
+      const open = nd.status === "running" && nd.basePath ? `<a class="lk-open" href="${esc(nd.basePath)}/" aria-label="Ouvrir ${esc(nd.name)}">Ouvrir</a>` : "";
+      return `<article class="lk-app" id="lk-${esc(nd.id)}"><header class="lk-ah">${miniLogo(nd).replace('class="lk-ml', 'class="lk-ml big')}<div class="lk-an"><strong>${esc(nd.name)}</strong>${badge(nd)}</div>${open}</header>${flow("in", recv)}${flow("out", send)}${note}</article>`;
     })
     .join("");
+  const loneNodes = L.nodes.filter((nd) => nd.status !== "missing" && nd.status !== "external" && !deg[nd.id]);
+  const loneLine = loneNodes.length
+    ? `<p class="muted lk-lonel">Sans lien : ${loneNodes.map((nd) => (nd.status === "running" && nd.basePath ? `<a href="${esc(nd.basePath)}/">${esc(nd.name)}</a>` : esc(nd.name))).join(", ")}.</p>`
+    : "";
 
   const warn = L.missing.length
     ? `<p class="warn">${L.missing.length > 1 ? "Ces applications sont liées mais ne sont pas installées" : "Cette application est liée mais n'est pas installée"} : ${L.missing.map((m) => `<b>${esc(m)}</b>`).join(", ")}. Importez-la, ou corrigez le lien dans l'application qui y fait référence.</p>`
@@ -511,7 +630,7 @@ function linksPage(o) {
     "links",
     `<div class="page-head"><h1>Liens entre applications</h1><p class="muted">Quelles applications échangent des données entre elles. Les pointillés en mouvement vont de l'application qui fournit vers celle qui reçoit.</p></div>
 ${warn}${diagram ? `<section class="panel lk-card">${diagram}<p class="muted lk-cap">Les pointillés avancent de l'application qui fournit vers celle qui reçoit.</p>${loneRow}</section>` : ""}${none}
-<section class="panel" aria-labelledby="lkd"><h2 id="lkd">Détail par application</h2>${rows || '<p class="muted" style="margin:0">Aucune application installée.</p>'}</section>`,
+<section class="panel" aria-labelledby="lkd"><h2 id="lkd">Détail par application</h2>${rows ? `<div class="lk-apps">${rows}</div>` : '<p class="muted" style="margin:0">Aucune application liée.</p>'}${loneLine}</section>`,
   );
 }
 
