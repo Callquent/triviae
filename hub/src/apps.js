@@ -197,6 +197,8 @@ async function start(rec) {
       NITRO_HOST: "127.0.0.1",
       DATA_DIR: dataDir,
       SYNC_TOKEN: rec.syncToken,
+      TRIVIAE_APP_ID: rec.def.id, // l'application lit ses liens chez Triviae : GET HUB_URL/hub/links/for/<TRIVIAE_APP_ID>
+      HUB_URL: `http://127.0.0.1:${hubPort}`,
       NODE_ENV: "production",
       NEXT_TELEMETRY_DISABLED: "1",
       ...dbEnv,
@@ -308,4 +310,9 @@ async function reload(id) {
 const get = (id) => apps.get(id);
 const list = () => [...apps.values()];
 
-module.exports = { scan, stopOne, reload, restart, restartAll, stopAll, get, list, logPath: (id) => path.join(LOGS, `${id}.log`) };
+let hubPort = require("./config").HUB_PORT;
+function setHubPort(p) {
+  hubPort = p;
+}
+
+module.exports = { setHubPort, scan, stopOne, reload, restart, restartAll, stopAll, get, list, logPath: (id) => path.join(LOGS, `${id}.log`) };

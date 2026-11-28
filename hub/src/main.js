@@ -148,6 +148,7 @@ async function main() {
   if (!mux.listening) throw new Error(`Aucun port libre entre ${HUB_PORT} et ${HUB_PORT + 9}.`);
 
   if (!datadir.check()) console.log("\n  Dossier de données inaccessible : " + datadir.getProblem() + "\n");
+  apps.setHubPort(actualPort);
   apps.scan();
   sync.startDiscovery(actualPort);
 

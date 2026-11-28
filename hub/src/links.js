@@ -6,6 +6,7 @@
 // Une application sans identifiant du hub (ex. site extérieur) se déclare avec "name" (et "url" facultative) au lieu de "app".
 const http = require("http");
 const apps = require("./apps");
+const linkstore = require("./linkstore");
 
 const ID = /^[a-z0-9][a-z0-9-]{0,40}$/;
 const text = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
@@ -56,7 +57,7 @@ function fetchLinks(rec) {
 const known = new Map();
 
 /** Collecte les liens de toutes les applications : { nodes, edges, missing }. */
-async function collect() {
+async function collect(raw) {
   const recs = apps.list();
   const ids = new Set(recs.map((r) => r.def.id));
   const info = {};
@@ -100,7 +101,13 @@ async function collect() {
     if (l.label && !e.labels.includes(l.label)) e.labels.push(l.label);
     edges.set(key, e);
   };
-  for (const [id, v] of Object.entries(info)) for (const l of v.links) add(id, l);
+  // liens déclarés par les applications elles-mêmes : ignorés dès que les liens se gèrent dans Triviae
+  if (raw || !linkstore.managed()) for (const [id, v] of Object.entries(info)) for (const l of v.links) add(id, l);
+  // liens choisis dans Triviae : le fournisseur (from) envoie au receveur (to)
+  for (const l of linkstore.edges()) {
+    if (!ids.has(l.from) || !ids.has(l.to)) continue;
+    add(l.to, { app: l.from, label: l.label, direction: "in" });
+  }
 
   const nodes = recs.map((r) => ({ id: r.def.id, name: r.def.name, status: r.status, state: info[r.def.id].state, icon: r.def.icon, basePath: r.def.basePath }));
   for (const m of missing) nodes.push({ id: m, name: m, status: "missing", state: "none", icon: "", basePath: "" });

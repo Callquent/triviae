@@ -179,6 +179,12 @@ a:focus-visible,button:focus-visible,summary:focus-visible,.drop:focus-visible,i
 .lk-pills{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
 .lk-pill{display:inline-flex;align-items:center;gap:8px;background:var(--g1);color:inherit;text-decoration:none;border:1px solid transparent;border-radius:99px;padding:3px 12px 3px 4px;font-size:.9rem;font-weight:600}a.lk-pill:hover{border-color:var(--g7)}
 .lk-pill em{font-style:normal;font-weight:600;font-size:.72rem;color:#b3392f;background:#fdecea;border-radius:99px;padding:1px 8px}.lk-pill.miss{background:var(--surface);border:1px dashed #d5473d}
+.lm-intro{margin:0 0 12px}.lm-none{margin:0 0 12px}.lm-list{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:8px}
+.lm-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px}.lm-sw{width:12px;height:12px;border-radius:50%;flex:none}.lm-t{flex:1;min-width:0;line-height:1.45}.lm-t em{font-style:normal;background:var(--g1);border-radius:8px;padding:1px 8px;font-size:.9rem}
+.lm-form{display:grid;gap:12px;padding-top:14px;border-top:1px solid var(--line)}.lm-sent{display:grid;grid-template-columns:repeat(auto-fit,minmax(12rem,1fr));gap:12px}
+.lm-form label{display:grid;gap:4px;font-size:.84rem;font-weight:600;color:var(--muted)}.lm-form select,.lm-form input[type=text],.lm-form input:not([type]){font:inherit;font-weight:400;color:var(--ink,inherit);padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);width:100%;box-sizing:border-box}
+.lm-extra{display:grid;grid-template-columns:repeat(auto-fit,minmax(12rem,1fr));gap:12px}.lm-colors{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.lm-c{display:block!important;cursor:pointer}.lm-c input{position:absolute;opacity:0}.lm-c span{display:block;width:26px;height:26px;border-radius:50%;border:2px solid transparent;box-shadow:0 0 0 1px var(--line)}.lm-c input:checked+span{border-color:var(--surface);box-shadow:0 0 0 3px var(--ink,#222)}.lm-c input:focus-visible+span{outline:2px solid var(--g7);outline-offset:3px}
+.lm-act{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.lm-msg{color:#b3392f}.lm-imp{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}.lm-imp p{margin:0;flex:1;min-width:14rem}
 .lk-note{margin:0;font-size:.9rem}
 .lk-lonel{margin:14px 0 0;font-size:.9rem}.lk-lonel a{color:inherit}
 .tile-add:hover{border-color:var(--g7);color:var(--g7)}.tile-add .plus{width:44px;height:44px;border-radius:50%;background:var(--g1);color:var(--g7);display:grid;place-items:center;font-size:1.7rem;line-height:1}
@@ -619,18 +625,52 @@ function linksPage(o) {
     ? `<p class="muted lk-lonel">Sans lien : ${loneNodes.map((nd) => (nd.status === "running" && nd.basePath ? `<a href="${esc(nd.basePath)}/">${esc(nd.name)}</a>` : esc(nd.name))).join(", ")}.</p>`
     : "";
 
+  // Liaisons choisies dans Triviae : liste + formulaire « X reçoit <flux> de Y »
+  const M = o.linkMgr || { links: [], feeds: {}, colors: [], providers: {} };
+  const installed = L.nodes.filter((nd) => nd.status !== "missing" && nd.status !== "external");
+  const storeKeys = new Set(M.links.map((l) => l.provider + ">" + l.consumer));
+  const declared = L.edges.filter((e) => byId[e.from] && byId[e.to] && byId[e.from].status !== "missing" && byId[e.to].status !== "missing" && byId[e.from].status !== "external" && byId[e.to].status !== "external" && !storeKeys.has(e.from + ">" + e.to));
+  const linkRows = M.links
+    .map(
+      (l) =>
+        `<li class="lm-row"><span class="lm-sw" style="background:${esc(l.color || "#667085")}"></span><div class="lm-t"><strong>${esc(l.consumerName)}</strong> <span class="muted">reçoit</span> <em>${esc(l.label)}</em> <span class="muted">de</span> <strong>${esc(l.providerName)}</strong></div><button class="btn small quiet" data-lm-del="${esc(l.id)}">Retirer</button></li>`,
+    )
+    .join("");
+  const manager = installed.length >= 2
+    ? `<section class="panel lm" aria-labelledby="lmh"><h2 id="lmh">Lier des applications</h2>
+<p class="muted lm-intro">C'est ici que les applications sont liées : une application qui reçoit des données (l'agenda, le budget…) les lit chez Triviae.</p>
+${linkRows ? `<ul class="lm-list">${linkRows}</ul>` : '<p class="muted lm-none">Aucun lien pour l\'instant.</p>'}
+<form class="lm-form" id="lmform" autocomplete="off">
+<div class="lm-sent"><label>L'application<select name="consumer" id="lm-c">${installed.map((nd) => `<option value="${esc(nd.id)}">${esc(nd.name)}</option>`).join("")}</select></label>
+<label>reçoit<select name="feed" id="lm-f">${Object.entries(M.feeds).map(([k, f]) => `<option value="${esc(k)}">${esc(f.title)}</option>`).join("")}<option value="custom">un autre flux…</option></select></label>
+<label>de l'application<select name="provider" id="lm-p"></select></label></div>
+<div class="lm-extra" id="lm-x" hidden><label>Chemin du flux<input name="path" placeholder="/api/agenda" maxlength="100"></label><label>Description<input name="label" placeholder="Données reçues" maxlength="140"></label></div>
+<div class="lm-colors" id="lm-col"><span class="muted">Couleur dans l'agenda (facultatif)</span>${M.colors.map((c, k) => `<label class="lm-c"><input type="radio" name="color" value="${esc(c)}" aria-label="Couleur ${k + 1}"><span style="background:${esc(c)}"></span></label>`).join("")}</div>
+<div class="lm-act"><button class="btn" type="submit">Lier</button><span class="muted lm-msg" id="lm-msg" role="status"></span></div></form>
+${declared.length ? `<div class="lm-imp"><p class="muted">${declared.length} lien${declared.length > 1 ? "s" : ""} encore déclaré${declared.length > 1 ? "s" : ""} par les applications elles-mêmes (anciennes versions).</p><button class="btn quiet small" id="lm-import">Les reprendre dans Triviae</button><button class="btn quiet small" id="lm-ignore">Les supprimer</button></div>` : ""}
+<script>window.__lm=${JSON.stringify({ nodes: installed.map((nd) => ({ id: nd.id, name: nd.name })), providers: M.providers }).replace(/</g, "\\u003c")};</script>
+</section>`
+    : "";
+  const LM_SCRIPT = `(function(){const d=window.__lm;if(!d)return;const c=document.getElementById('lm-c'),f=document.getElementById('lm-f'),p=document.getElementById('lm-p'),x=document.getElementById('lm-x'),col=document.getElementById('lm-col'),msg=document.getElementById('lm-msg');
+function fill(){const feed=f.value;const ok=new Set(d.providers[feed]||[]);const opts=d.nodes.filter(n=>n.id!==c.value).sort((a,b)=>(ok.has(b.id)-ok.has(a.id))||a.name.localeCompare(b.name));
+p.innerHTML=opts.map(n=>'<option value="'+n.id+'">'+n.name.replace(/&/g,'&amp;').replace(/</g,'&lt;')+(ok.has(n.id)?' ✓ fournit ce flux':'')+'</option>').join('');x.hidden=feed!=='custom';col.hidden=feed!=='agenda'}
+c.addEventListener('change',fill);f.addEventListener('change',fill);fill();
+async function post(u,b){const r=await fetch(u,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b||{})});return r.json().catch(()=>({ok:false,message:'Erreur du serveur.'}))}
+document.getElementById('lmform').addEventListener('submit',async e=>{e.preventDefault();const fd=new FormData(e.target);const j=await post('/hub/links/add',Object.fromEntries(fd));if(j.ok)location.reload();else msg.textContent=j.message||'Impossible de lier.'});
+document.querySelectorAll('[data-lm-del]').forEach(b=>b.addEventListener('click',async()=>{b.disabled=true;await post('/hub/links/remove',{id:b.dataset.lmDel});location.reload()}));
+const ig=document.getElementById('lm-ignore');if(ig)ig.addEventListener('click',async()=>{ig.disabled=true;await post('/hub/links/ignore');location.reload()});const im=document.getElementById('lm-import');if(im)im.addEventListener('click',async()=>{im.disabled=true;im.textContent='Reprise…';const j=await post('/hub/links/import');im.textContent=j.added?j.added+' lien(s) repris':'Aucun lien repris';setTimeout(()=>location.reload(),1200)});})();`;
   const warn = L.missing.length
     ? `<p class="warn">${L.missing.length > 1 ? "Ces applications sont liées mais ne sont pas installées" : "Cette application est liée mais n'est pas installée"} : ${L.missing.map((m) => `<b>${esc(m)}</b>`).join(", ")}. Importez-la, ou corrigez le lien dans l'application qui y fait référence.</p>`
     : "";
   const none = !L.edges.length
-    ? `<div class="panel"><h2>Aucun lien pour l'instant</h2><p class="muted" style="margin:0">Une application déclare ses liens dans son <code>app.json</code> (<code>"links"</code>) ou par une route <code>/api/liens</code> : voir le guide « Ajouter une application », partie « Liens entre applications ». Elle doit être démarrée pour que ses liens apparaissent ici.</p></div>`
+    ? `<div class="panel"><h2>Aucun lien pour l'instant</h2><p class="muted" style="margin:0">Liez des applications dans le panneau ci-dessous. Une application peut aussi déclarer ses liens dans son <code>app.json</code> (<code>"links"</code>) ou par une route <code>/api/liens</code> : voir le guide « Ajouter une application », partie « Liens entre applications ». Elle doit être démarrée pour que ses liens apparaissent ici.</p></div>`
     : "";
   return shell(
     o,
     "links",
     `<div class="page-head"><h1>Liens entre applications</h1><p class="muted">Quelles applications échangent des données entre elles. Les pointillés en mouvement vont de l'application qui fournit vers celle qui reçoit.</p></div>
-${warn}${diagram ? `<section class="panel lk-card">${diagram}<p class="muted lk-cap">Les pointillés avancent de l'application qui fournit vers celle qui reçoit.</p>${loneRow}</section>` : ""}${none}
-<section class="panel" aria-labelledby="lkd"><h2 id="lkd">Détail par application</h2>${rows ? `<div class="lk-apps">${rows}</div>` : '<p class="muted" style="margin:0">Aucune application liée.</p>'}${loneLine}</section>`,
+${warn}${diagram ? `<section class="panel lk-card">${diagram}<p class="muted lk-cap">Les pointillés avancent de l'application qui fournit vers celle qui reçoit.</p>${loneRow}</section>` : ""}${none}${manager}
+<section class="panel" aria-labelledby="lkd"><h2 id="lkd">Détail par application</h2>${rows ? `<div class="lk-apps">${rows}</div>` : '<p class="muted" style="margin:0">Aucune application liée.</p>'}${loneLine}</section>${manager ? `<script>${LM_SCRIPT}</script>` : ""}`,
   );
 }
 

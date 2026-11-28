@@ -13,6 +13,7 @@ const importer = require("./importer");
 const lsstore = require("./lsstore");
 const tls = require("./tls");
 const links = require("./links");
+const linkstore = require("./linkstore");
 const SW = require("./sw");
 const { ASSETS, APPS_DIR, LOGS } = require("./config");
 const { lanAddresses } = require("./netinfo");
@@ -224,6 +225,13 @@ async function homePage(req, res, url, view = "home") {
       apps: apps.list(),
       tls: view === "settingsPage" ? tls.info() : undefined,
       links: view === "linksPage" ? await links.collect() : undefined,
+      linkMgr:
+        view === "linksPage"
+          ? await (async () => {
+              const prov = await linkstore.providers();
+              return { links: linkstore.list(), feeds: linkstore.FEEDS, colors: linkstore.COLORS, providers: Object.fromEntries(Object.entries(prov).map(([k, v]) => [k, [...v]])) };
+            })()
+          : undefined,
       addresses,
       selected: chosen ? chosen.url : "",
       qrSvg,
@@ -411,6 +419,7 @@ function create({ onQuit, getPort }) {
           if (ok) await apps.restartAll();
           return json(res, { ok, message: datadir.getProblem() });
         }
+        if ((m = /^\/hub\/links\/for\/([a-z0-9-]+)$/.exec(p)) && req.method === "GET") return json(res, { links: linkstore.forConsumer(m[1]), managed: linkstore.managed() });
         if (p === "/hub/sync/status") return json(res, sync.status());
         if (req.method === "POST" && p.startsWith("/hub/sync/")) {
           if (p === "/hub/sync/pair/start") return json(res, sync.startPairing());
@@ -440,6 +449,32 @@ function create({ onQuit, getPort }) {
           if ((m = /^\/hub\/restart\/([a-z0-9-]+)$/.exec(p))) return json(res, { ok: await apps.restart(m[1]) });
           if (p === "/hub/rescan") return json(res, { added: apps.scan() });
           if (p === "/hub/firewall") return json(res, { ok: await win.ensureFirewall(getPort(), true) });
+          if (p === "/hub/links/add") {
+            let input = {};
+            try {
+              input = JSON.parse((await readBody(req, 4096)).toString("utf8"));
+            } catch {}
+            try {
+              return json(res, { ok: true, link: linkstore.add(input) });
+            } catch (e) {
+              return json(res, { ok: false, message: e.user ? e.message : "Impossible d'enregistrer le lien." }, e.user ? 400 : 500);
+            }
+          }
+          if (p === "/hub/links/remove") {
+            let input = {};
+            try {
+              input = JSON.parse((await readBody(req, 1024)).toString("utf8"));
+            } catch {}
+            return json(res, { ok: linkstore.remove(String(input.id || "")) });
+          }
+          if (p === "/hub/links/ignore") {
+            linkstore.setManaged();
+            return json(res, { ok: true });
+          }
+          if (p === "/hub/links/import") {
+            const L = await links.collect(true);
+            return json(res, { ok: true, added: await linkstore.importDeclared(L.edges) });
+          }
           if (p === "/hub/shortcut") return json(res, { ok: !!win.ensureShortcut(true) });
           if (p === "/hub/autostart") return json(res, { on: win.setAutostart(!win.autostartOn()) });
           if (p === "/hub/quit") {
